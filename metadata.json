@@ -1,0 +1,6 @@
+{
+  "name": "CareerLens AI - 求职匹配深度研判",
+  "description": "专业级 AI 求职研判系统。支持 PDF/Word/图片全格式解析，提供客观严谨与犀利毒舌双模式，三十秒内完成简历与岗位的深度对标分析。CareerLens AI: Professional career insight system supporting multi-format parsing and dual-mode analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["Multi-format file parsing", "AI matching insights", "Dual-tone evaluation", "Bilingual support"]
+}
