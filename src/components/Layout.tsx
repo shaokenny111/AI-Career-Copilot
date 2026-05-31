@@ -1,56 +1,93 @@
 // ============================================================================
 // 公共布局（Layout）
 // ----------------------------------------------------------------------------
-// 顶部导航 + 内容区（<Outlet/>）。所有页面共用，保证导航与外壳一致。
-// 视觉沿用 slate/indigo 基调，后续 Phase 可在此挂全局状态/语言切换等。
+// 统一 Header（logo 可点击回首页 + 中/EN 全局切换）+ 顶部径向光晕 + 内容区
+// （<Outlet/>）。视觉对齐 _refs/ui/my_resume_final_v3.jsx。母版/子版库不是独立
+// 导航项，而是首页（hub）内的分区，故 Header 不放主导航。
 // ============================================================================
 
-import { NavLink, Outlet } from "react-router-dom";
-import { FileText, Layers, Sparkles } from "lucide-react";
+import type { CSSProperties } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
+import { FileText, Globe } from "lucide-react";
 
-const NAV_ITEMS = [
-  { to: "/", label: "首页", icon: Sparkles, end: true },
-  { to: "/master", label: "我的母版", icon: FileText, end: false },
-  { to: "/versions", label: "子版库", icon: Layers, end: false },
-];
+const ghostBtn: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  background: "#fff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 10,
+  padding: "9px 14px",
+  fontSize: 13,
+  color: "#475569",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
 
 export default function Layout() {
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
-      <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-xl">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <NavLink to="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white">
-              <Sparkles size={16} />
-            </div>
-            <span className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">
-              Resume Compiler
-            </span>
-          </NavLink>
+  const navigate = useNavigate();
 
-          <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
-                    isActive
-                      ? "bg-indigo-50 text-indigo-600"
-                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                  }`
-                }
-              >
-                <Icon size={14} />
-                <span className="hidden sm:inline">{label}</span>
-              </NavLink>
-            ))}
-          </nav>
+  return (
+    <div style={{ position: "relative", minHeight: "100vh", background: "#f8fafc", color: "#1e293b" }}>
+      {/* 顶部径向光晕 */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 300,
+          background:
+            "radial-gradient(55% 55% at 50% 0%, rgba(99,102,241,.08), transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <header
+        style={{
+          height: 60,
+          borderBottom: "1px solid #e2e8f0",
+          background: "rgba(255,255,255,.85)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 28px",
+          position: "relative",
+          zIndex: 2,
+        }}
+      >
+        <div
+          title="首页"
+          onClick={() => navigate("/")}
+          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+        >
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              background: "linear-gradient(135deg,#6366f1,#4f46e5)",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 8px rgba(79,70,229,.3)",
+            }}
+          >
+            <FileText size={16} color="#fff" />
+          </div>
+          <span className="serif" style={{ fontWeight: 600, fontSize: 17 }}>
+            AI Resume Compiler
+          </span>
         </div>
+
+        {/* 中/EN 全局切换（i18n 后续 Phase 接入，目前为视觉占位） */}
+        <button className="gbtn" style={ghostBtn} title="切换语言（待接入）">
+          <Globe size={15} /> 中 / EN
+        </button>
       </header>
 
-      <main className="container mx-auto px-4 py-10">
+      <main style={{ position: "relative", zIndex: 1 }}>
         <Outlet />
       </main>
     </div>
