@@ -14,6 +14,9 @@ export {
   DEFAULT_MODELS,
 } from "./client";
 
-export { classifyResumeType } from "./classify"; // #4 类型识别
-export { evaluateRelevance } from "./relevance"; // #2 相关性评估
 export { rewriteSegment } from "./rewrite"; // #1 改写标注
+export { evaluateRelevance } from "./relevance"; // #2 相关性评估
+export { analyzeGap } from "./gap"; // #3 差距分析
+export { classifyResumeType } from "./classify"; // #4 类型识别
+export { generateGuidanceQuestions } from "./questions"; // #5 应届生提问
+export { convertToStar } from "./star"; // #6 STAR 转换
