@@ -4,19 +4,15 @@
 // 视觉严格参考 _refs/ui/my_resume_final_v3.jsx：母版区（主色描边 + 经历预览）、
 // 子版库（四级匹配度圆环 + 分级标签 + 状态 + 时间）、四级图例、母版-子版联动提示，
 // 以及无母版时的空状态。数据来自 storage.ts。
-//
-// 临时：右上"预览示例数据"开关仅用于无真实数据时审阅 UI（in-memory，不落盘），
-// 真实上传/编译流程接入后（Phase 3+）连同 demoData.ts 一并删除。
 // ============================================================================
 
-import { useMemo, useState, type CSSProperties, type FC } from "react";
+import { useMemo, type CSSProperties, type FC } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, Pencil, Sparkles, MoreHorizontal, FileDown, Eye, Clock,
   CheckCircle2, FileEdit, Layers, Database, ArrowRight, RefreshCw, Plus,
 } from "lucide-react";
 import { loadStorage } from "../lib/storage";
-import { buildDemoStorage } from "../lib/demoData";
 import { matchTier } from "../lib/matchTier";
 import { formatRelativeDate } from "../lib/datetime";
 import MiniRing from "../components/MiniRing";
@@ -29,10 +25,7 @@ const STATUS = {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const base = useMemo(() => loadStorage(), []);
-  const [preview, setPreview] = useState(false);
-
-  const view = preview ? buildDemoStorage(base) : base;
+  const view = useMemo(() => loadStorage(), []);
   const master = view.master;
 
   // 子版按最近更新排序，最新者置顶
@@ -58,21 +51,6 @@ export default function HomePage() {
         .mtag { transition: all .15s; }
       `}</style>
 
-      {/* 临时预览开关 */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-        <button
-          onClick={() => setPreview((p) => !p)}
-          style={{
-            display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#94a3b8",
-            background: "#fff", border: "1px dashed #cbd5e1", borderRadius: 8,
-            padding: "5px 10px", cursor: "pointer",
-          }}
-          title="临时：用示例数据预览 UI（不写入本地存储）"
-        >
-          {preview ? "退出预览" : "临时 · 预览示例数据"}
-        </button>
-      </div>
-
       {master ? (
         <>
           <div style={{ marginBottom: 30 }}>
@@ -84,12 +62,12 @@ export default function HomePage() {
             </div>
           </div>
 
-          <MasterCard master={master} onCompile={() => navigate("/versions")} onEdit={() => navigate("/master")} />
+          <MasterCard master={master} onCompile={() => navigate("/upload")} onEdit={() => navigate("/master")} />
 
           <VersionsLibrary versions={versions} />
         </>
       ) : (
-        <EmptyState onPreview={() => setPreview(true)} />
+        <EmptyState onUpload={() => navigate("/upload")} />
       )}
     </div>
   );
@@ -286,7 +264,7 @@ const VersionCard: FC<{ v: CompiledVersion; isLatest: boolean }> = ({ v, isLates
 
 // ============================ 空状态 ============================
 
-function EmptyState({ onPreview }: { onPreview: () => void }) {
+function EmptyState({ onUpload }: { onUpload: () => void }) {
   return (
     <div style={{ padding: "48px 0 24px", textAlign: "center" }}>
       <div
@@ -307,15 +285,9 @@ function EmptyState({ onPreview }: { onPreview: () => void }) {
         上传一份现有简历，我们会帮你解析成结构化的经历。
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-        <button className="pbtn" style={{ ...primaryBtn, opacity: 0.55, cursor: "not-allowed" }} disabled title="上传流程将在后续 Phase 接入">
+        <button className="pbtn" style={primaryBtn} onClick={onUpload}>
           <Plus size={15} /> 上传简历，创建母版
         </button>
-        <button className="gbtn" style={ghostBtn} onClick={onPreview}>
-          <Eye size={14} /> 预览示例
-        </button>
-      </div>
-      <div style={{ fontSize: 12, color: "#cbd5e1", marginTop: 14 }}>
-        （上传与解析流程将在后续 Phase 接入）
       </div>
     </div>
   );

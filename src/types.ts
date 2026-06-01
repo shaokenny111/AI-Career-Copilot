@@ -338,6 +338,34 @@ export interface ResumeTypeOutput {
     | "enter_reverse_guidance";
 }
 
+// ---------- Prompt #7：母版解析（纯文本 → 结构化）----------
+// 把上传/粘贴得到的简历纯文本切分成 BasicInfo + Segment[]。
+// 铁律：每段必须带 timeRange + isCurrent（缺失会让后续 AI 脑补工作年限）。
+
+/** 解析出的单段经历（尚未落盘，缺 id/时间戳，由调用方补全成 Segment） */
+export interface ParsedSegment {
+  type: SegmentType;
+  title: string;
+  subtitle?: string;
+  /** 正文：必须是原文完整内容，禁止摘要 */
+  content: string;
+  /** 时间范围（强制；无明确时间的段如技能用空串占位） */
+  timeRange: TimeRange;
+  /** 是否当前在职/进行中（强制） */
+  isCurrent: boolean;
+  tags: string[];
+}
+
+export interface ResumeParseInput {
+  /** 简历纯文本（OCR / Word 提取 / 粘贴所得） */
+  rawText: string;
+}
+
+export interface ResumeParseOutput {
+  basicInfo: BasicInfo;
+  segments: ParsedSegment[];
+}
+
 // ---------- Prompt #2：内容相关性评估 ----------
 
 export interface RelevanceInput {

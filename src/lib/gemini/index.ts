@@ -14,6 +14,7 @@ export {
   DEFAULT_MODELS,
 } from "./client";
 
+export { parseResumeText } from "./parse"; // #7 母版解析（纯文本→结构化）
 export { rewriteSegment } from "./rewrite"; // #1 改写标注
 export { evaluateRelevance } from "./relevance"; // #2 相关性评估
 export { analyzeGap } from "./gap"; // #3 差距分析
