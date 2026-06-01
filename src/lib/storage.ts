@@ -7,7 +7,7 @@
 //   并在 MIGRATIONS 注册"从旧版本到下一版本"的转换函数
 // ============================================================================
 
-import type { AppStorage } from "../types";
+import type { AppStorage, CompiledVersion } from "../types";
 
 const STORAGE_KEY = "ai_resume_compiler_v2";
 
@@ -124,4 +124,18 @@ export function resetStorage(): AppStorage {
   const fresh = getDefaultStorage();
   saveStorage(fresh);
   return fresh;
+}
+
+/** 追加一个编译出的子版到 compiledVersions（编译完成后调用）。 */
+export function addCompiledVersion(version: CompiledVersion): void {
+  const store = loadStorage();
+  saveStorage({
+    ...store,
+    compiledVersions: [...store.compiledVersions, version],
+  });
+}
+
+/** 按 id 取单个子版；不存在返回 null（工作台 / 子版库点击进入时用）。 */
+export function getCompiledVersion(id: string): CompiledVersion | null {
+  return loadStorage().compiledVersions.find((v) => v.id === id) ?? null;
 }
