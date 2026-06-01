@@ -139,3 +139,14 @@ export function addCompiledVersion(version: CompiledVersion): void {
 export function getCompiledVersion(id: string): CompiledVersion | null {
   return loadStorage().compiledVersions.find((v) => v.id === id) ?? null;
 }
+
+/** 原位更新一个子版（工作台采纳/编辑后回写）。id 不存在则忽略。 */
+export function updateCompiledVersion(version: CompiledVersion): void {
+  const store = loadStorage();
+  saveStorage({
+    ...store,
+    compiledVersions: store.compiledVersions.map((v) =>
+      v.id === version.id ? version : v,
+    ),
+  });
+}
