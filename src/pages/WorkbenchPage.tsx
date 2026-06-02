@@ -15,7 +15,9 @@
 // ============================================================================
 
 import {
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type FC,
@@ -27,6 +29,8 @@ import {
   Info, Check, X, ArrowLeft, ArrowRight, Sparkles, Database, Target, Lock,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage, updateCompiledVersion } from "../lib/storage";
+import { matchTier } from "../lib/matchTier";
+import { computeMatchScore, computeSegmentRequirements } from "../lib/scoring";
 import type {
   CompiledVersion, Master, RewrittenBullet, Segment, SegmentDecision, SourceLevel,
 } from "../types";
@@ -72,6 +76,38 @@ export default function WorkbenchPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   // 绿/黄"已审阅"手势（默认计入，此处仅作 UX 进度标记，不落盘）
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
+
+  // ===== 全局匹配度（确定性加权命中率；随采纳/确认/编辑实时重算）=====
+  // 与完成页共用 src/lib/scoring.ts，保证两处分数一致。version 任一变更触发重算。
+  const score = useMemo(
+    () =>
+      version
+        ? computeMatchScore(
+            version.segmentDecisions,
+            version.jobDescription.requirements ?? [],
+            version.requirementMatches,
+          )
+        : {
+            scoreNow: 0, scoreBefore: 0, delta: 0,
+            hitWeightNow: 0, hitWeightBefore: 0, totalWeight: 0, requirements: [],
+          },
+    [version],
+  );
+
+  // 回填 overallScore 到 storage（Phase 7 完成页 / 子版库直接读这个数）。
+  // 用函数式 setVersion + 等值守卫，避免 effect 自循环。
+  useEffect(() => {
+    setVersion((prev) => {
+      if (!prev || prev.gapAnalysis.overallScore === score.scoreNow) return prev;
+      const next: CompiledVersion = {
+        ...prev,
+        gapAnalysis: { ...prev.gapAnalysis, overallScore: score.scoreNow },
+        updatedAt: new Date().toISOString(),
+      };
+      updateCompiledVersion(next);
+      return next;
+    });
+  }, [score.scoreNow]);
 
   // 初始化 activeId 为首段
   const effectiveActive = activeId || segments[0]?.id || "";
@@ -166,6 +202,15 @@ export default function WorkbenchPage() {
   const activeDec = activeSeg ? decisionOf(activeSeg.id) : undefined;
   const jd = version.jobDescription;
 
+  // 本段 JD 要求命中明细（与全局分数同一套判定，右栏块 2 联动）
+  const segReqs = activeDec
+    ? computeSegmentRequirements(
+        activeDec,
+        version.jobDescription.requirements ?? [],
+        version.requirementMatches,
+      )
+    : [];
+
   return (
     <div style={{ position: "relative" }}>
       <style>{`
@@ -177,6 +222,7 @@ export default function WorkbenchPage() {
         .bcard .edit-btn { opacity:0; transition: opacity .15s; }
         .bcard:hover .edit-btn { opacity:1; }
         .expand:hover { color:#4f46e5; }
+        .jdrow:hover { background:#f8fafc; }
         .wbcol { overflow-y:auto; }
       `}</style>
 
@@ -330,33 +376,78 @@ export default function WorkbenchPage() {
           </div>
         </main>
 
-        {/* 右栏：占位骨架（评分 / JD 联动 → 6B） */}
+        {/* 右栏：全局双环评分 + 本段 JD 命中追溯 + 母版事实 */}
         <aside className="wbcol" style={{ borderLeft: "1px solid #e2e8f0", background: "#fff", padding: 22, display: "flex", flexDirection: "column", gap: 22 }}>
+          {/* 块1：全局匹配度双环（随采纳实时上涨，不随切段变） */}
           <section>
             <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}><Target size={13} /> 整份简历匹配度</div>
-            <div style={{ background: "linear-gradient(135deg,#fafbff,#f5f3ff)", border: "1px solid #e9ecfb", borderRadius: 16, padding: "26px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 116, height: 116, borderRadius: 999, border: "11px solid #eef2ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#cbd5e1", fontSize: 13, textAlign: "center", lineHeight: 1.4 }}>
-                评分<br />Phase 6B
-              </div>
-              <div style={{ fontSize: 11.5, color: "#94a3b8", textAlign: "center", lineHeight: 1.5 }}>
-                确定性加权命中率评分 + 双环 + 随采纳实时上涨，下一步接入
-              </div>
-            </div>
-          </section>
-          <section style={{ paddingTop: 22, borderTop: "1px solid #f1f5f9" }}>
-            <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}><Database size={13} /> 本段命中的 JD 词</div>
-            {activeDec?.finalIncluded ? (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {Array.from(new Set(activeDec.bullets.flatMap((b) => b.matchedJdPhrases))).slice(0, 12).map((p) => (
-                  <span key={p} style={{ fontSize: 11, background: "#eef2ff", color: "#4338ca", padding: "2px 9px", borderRadius: 99, fontWeight: 500 }}>{p}</span>
-                ))}
+            {score.totalWeight > 0 ? (
+              <div style={{ background: "linear-gradient(135deg,#fafbff,#f5f3ff)", border: "1px solid #e9ecfb", borderRadius: 16, padding: "20px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+                  <Ring value={score.scoreBefore} label="改写前" dim size={72} stroke={7} />
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <ArrowRight size={18} color="#94a3b8" />
+                    {score.delta > 0 && (
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#059669", background: "#d1fae5", padding: "1px 8px", borderRadius: 99 }}>+{score.delta}</span>
+                    )}
+                  </div>
+                  <Ring value={score.scoreNow} label="当前" size={116} stroke={11} />
+                </div>
+                <div style={{ fontSize: 11.5, color: "#94a3b8", textAlign: "center", marginTop: 12, lineHeight: 1.5 }}>
+                  采纳更多改写 / 确认 AI 补充，分数实时上涨
+                </div>
+                <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 12, fontSize: 10.5, color: "#94a3b8" }}>
+                  <Legend c="#e11d48" t="<60" /><Legend c="#d97706" t="60-70" /><Legend c="#059669" t="70-80" /><Legend c="#4f46e5" t="80+" />
+                </div>
               </div>
             ) : (
-              <div style={{ fontSize: 12.5, color: "#cbd5e1" }}>本段本次投递隐藏</div>
+              <div style={{ background: "linear-gradient(135deg,#fafbff,#f5f3ff)", border: "1px solid #e9ecfb", borderRadius: 16, padding: "26px 16px", textAlign: "center", fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+                暂无可量化的 JD 要求 —— 编译未从 JD 提取到要求，无法计算确定性匹配度。
+              </div>
             )}
-            <div style={{ fontSize: 11, color: "#cbd5e1", marginTop: 12, lineHeight: 1.5 }}>
-              （JD 命中追溯 / 联动高亮在 6B 接入）
-            </div>
+          </section>
+
+          {/* 块2：本段 JD 要求命中追溯（与全局分数同一套判定） */}
+          <section style={{ paddingTop: 22, borderTop: "1px solid #f1f5f9" }}>
+            <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}><Target size={13} /> 本段 JD 要求命中</div>
+            {!activeDec?.finalIncluded ? (
+              <div style={{ fontSize: 12.5, color: "#cbd5e1" }}>本段本次投递隐藏，不参与匹配</div>
+            ) : segReqs.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: "#cbd5e1" }}>本段无对应的 JD 要求</div>
+            ) : (
+              segReqs.map((r) => (
+                <div key={r.phrase} className="jdrow" style={{ padding: 10, borderRadius: 8, marginBottom: 2 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+                    {r.hit ? (
+                      <CheckCircle2 size={16} color="#059669" style={{ marginTop: 1, flexShrink: 0 }} />
+                    ) : (
+                      <AlertCircle size={16} color={r.pending ? "#d97706" : "#cbd5e1"} style={{ marginTop: 1, flexShrink: 0 }} />
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: r.hit ? "#1e293b" : "#94a3b8", fontWeight: 500, lineHeight: 1.4 }}>{r.phrase}</div>
+                      <div style={{ fontSize: 11.5, color: r.hit ? "#059669" : r.pending ? "#d97706" : "#cbd5e1", marginTop: 3 }}>
+                        {r.hit
+                          ? `✅ 由 bullet ${r.byBulletIndex} 命中`
+                          : r.pending
+                            ? "⚠️ 待确认 AI 补充的 bullet"
+                            : "⚠️ 暂未命中"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </section>
+
+          {/* 块3：母版事实（改写只基于这些事实） */}
+          <section style={{ paddingTop: 22, borderTop: "1px solid #f1f5f9" }}>
+            <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}><Database size={13} /> AI 掌握的事实</div>
+            <div style={{ fontSize: 11.5, color: "#94a3b8", marginBottom: 12, lineHeight: 1.5 }}>改写只基于这些事实，不凭空捏造</div>
+            {activeSeg ? (
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{activeSeg.content}</div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: "#cbd5e1" }}>—</div>
+            )}
           </section>
         </aside>
       </div>
@@ -458,6 +549,76 @@ const BulletCard: FC<BulletCardProps> = ({
     </div>
   );
 };
+
+// ============================ 评分双环 ============================
+
+/** 数字滚动（缓出三次方），用于当前环 */
+function CountUp({ to, duration = 1200 }: { to: number; duration?: number }) {
+  const [v, setV] = useState(0);
+  const raf = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    let start: number | undefined;
+    const step = (t: number) => {
+      if (start === undefined) start = t;
+      const p = Math.min((t - start) / duration, 1);
+      setV(Math.round((1 - Math.pow(1 - p, 3)) * to));
+      if (p < 1) raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => {
+      if (raf.current !== undefined) cancelAnimationFrame(raf.current);
+    };
+  }, [to, duration]);
+  return <>{v}</>;
+}
+
+/** 进度环：四级分色取自 lib/matchTier（与全站一致）；dim=改写前的灰环 */
+function Ring({
+  value, size, stroke, label, dim = false,
+}: {
+  value: number; size: number; stroke: number; label: string; dim?: boolean;
+}) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - Math.max(0, Math.min(100, value)) / 100);
+  const tier = matchTier(value);
+  const col = dim ? "#cbd5e1" : tier.color;
+  const colLight = dim ? "#e2e8f0" : tier.light;
+  const gid = `wbring_${value}_${dim ? "d" : "n"}_${size}`;
+  return (
+    <div style={{ position: "relative", width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <defs>
+          <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={colLight} />
+            <stop offset="100%" stopColor={col} />
+          </linearGradient>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={`url(#${gid})`}
+          strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.22,1,.36,1)" }}
+        />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <span className="serif" style={{ fontSize: dim ? 20 : 30, fontWeight: 600, color: dim ? "#94a3b8" : col, fontVariantNumeric: "tabular-nums" }}>
+          {dim ? value : <CountUp to={value} />}
+        </span>
+        <span style={{ fontSize: dim ? 9 : 10, color: "#94a3b8", marginTop: -1 }}>{label}</span>
+      </div>
+    </div>
+  );
+}
+
+/** 分色图例小点 */
+function Legend({ c, t }: { c: string; t: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span style={{ width: 7, height: 7, borderRadius: 99, background: c }} />{t}
+    </span>
+  );
+}
 
 // ============================ 步骤条 ============================
 
