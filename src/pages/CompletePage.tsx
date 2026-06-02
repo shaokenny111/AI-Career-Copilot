@@ -18,11 +18,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
-  Globe, FileText, ChevronRight, Home, RotateCcw,
+  Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage } from "../lib/storage";
 import { computeMatchScore, isBulletAdopted } from "../lib/scoring";
 import { matchTier } from "../lib/matchTier";
+import { copyText, modelToPlainText, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, Master, Segment } from "../types";
 
 const SEG_TYPE_LABEL: Record<Segment["type"], string> = {
@@ -67,6 +68,33 @@ export default function CompletePage() {
       })
       .filter((x): x is { seg: Segment; total: number; adoptedBullets: typeof version.segmentDecisions[number]["bullets"] } => !!x);
   }, [version, master]);
+
+  // 导出单一数据源：从已渲染的 includedSegments 派生，导出与屏幕逐字同源
+  const exportModel: ExportModel = useMemo(
+    () => ({
+      jdLabel: version
+        ? `${version.jobDescription.company} · ${version.jobDescription.position}`
+        : "",
+      segments: includedSegments.map(({ seg, adoptedBullets }) => ({
+        title: seg.title,
+        typeLabel: SEG_TYPE_LABEL[seg.type],
+        bullets: adoptedBullets.map((b) => b.userEditedText ?? b.rewrittenText),
+      })),
+    }),
+    [version, includedSegments],
+  );
+
+  // 复制反馈（key: "all" 或 "seg_<i>"），短暂高亮后复位
+  const [copied, setCopied] = useState<string | null>(null);
+  const doCopy = async (key: string, text: string) => {
+    try {
+      await copyText(text);
+      setCopied(key);
+      setTimeout(() => setCopied((k) => (k === key ? null : k)), 1600);
+    } catch {
+      setCopied(null);
+    }
+  };
 
   if (!version || !master || !score) {
     return (
@@ -155,33 +183,63 @@ export default function CompletePage() {
             </div>
           )}
 
-          {/* 模块2：采纳后的最终内容（展示，不导出） */}
-          <div className="card" style={{ padding: 26, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
+          {/* 模块2：采纳后的最终内容（导出的唯一数据源；逐段复制入口） */}
+          <div className="card" style={{ padding: 26, marginBottom: 24, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
             <div style={sectionTitle}>最终投递内容</div>
             <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
-              以下是采纳后将写入这份投递版的内容（红色补充仅在你确认后纳入）。
+              以下是采纳后将写入这份投递版的内容（红色补充仅在你确认后纳入）。导出 / 复制的就是这份干净文本，不含标注。
             </div>
-            {includedSegments.length === 0 ? (
+            {exportModel.segments.length === 0 ? (
               <div style={{ fontSize: 13.5, color: "#94a3b8" }}>本子版没有纳入任何段落。</div>
             ) : (
-              includedSegments.map(({ seg, adoptedBullets }) => (
-                <div key={seg.id} style={{ marginBottom: 22 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: "#1e293b" }}>{seg.title}</div>
-                  <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2, marginBottom: 10 }}>{SEG_TYPE_LABEL[seg.type]}</div>
-                  {adoptedBullets.length === 0 ? (
-                    <div style={{ fontSize: 13, color: "#cbd5e1", paddingLeft: 14 }}>（本段暂无已采纳的 bullet）</div>
-                  ) : (
-                    <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 7 }}>
-                      {adoptedBullets.map((b) => (
-                        <li key={b.id} style={{ fontSize: 14, color: "#334155", lineHeight: 1.65 }}>
-                          {b.userEditedText ?? b.rewrittenText}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))
+              exportModel.segments.map((seg, i) => {
+                const key = `seg_${i}`;
+                return (
+                  <div key={key} style={{ marginBottom: 22 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 600, color: "#1e293b" }}>{seg.title}</div>
+                        <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2, marginBottom: 10 }}>{seg.typeLabel}</div>
+                      </div>
+                      <button
+                        className="gbtn"
+                        onClick={() => doCopy(key, segmentToPlainText(seg))}
+                        style={{ ...ghostBtn, flexShrink: 0, padding: "5px 11px", fontSize: 12, color: copied === key ? "#047857" : "#475569", borderColor: copied === key ? "#a7f3d0" : "#e2e8f0" }}
+                      >
+                        {copied === key ? <><Check size={13} /> 已复制</> : <><Copy size={13} /> 复制本段</>}
+                      </button>
+                    </div>
+                    {seg.bullets.length === 0 ? (
+                      <div style={{ fontSize: 13, color: "#cbd5e1", paddingLeft: 14 }}>（本段暂无已采纳的 bullet）</div>
+                    ) : (
+                      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 7 }}>
+                        {seg.bullets.map((t, bi) => (
+                          <li key={bi} style={{ fontSize: 14, color: "#334155", lineHeight: 1.65 }}>{t}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })
             )}
+          </div>
+
+          {/* 模块3：导出投递版本（7B-1：逐段复制已在上方 / 此处复制全文；Word 见 7B-2） */}
+          <div className="card" style={{ padding: 26, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
+            <div style={sectionTitle}>导出投递版本</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
+              导出的是上方"最终投递内容"的干净文本，与屏幕逐字一致。
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button
+                className="gbtn"
+                disabled={exportModel.segments.length === 0}
+                onClick={() => doCopy("all", modelToPlainText(exportModel))}
+                style={{ ...ghostBtn, padding: "10px 16px", fontSize: 13.5, color: copied === "all" ? "#047857" : "#475569", borderColor: copied === "all" ? "#a7f3d0" : "#e2e8f0", opacity: exportModel.segments.length === 0 ? 0.5 : 1 }}
+              >
+                {copied === "all" ? <><Check size={15} /> 已复制全文</> : <><Copy size={15} /> 复制全文</>}
+              </button>
+            </div>
           </div>
 
           {/* 底部出口 */}
