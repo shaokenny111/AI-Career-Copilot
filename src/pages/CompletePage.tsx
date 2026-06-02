@@ -19,12 +19,20 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
   Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check, FileType, Loader2, FileDown,
+  ShieldCheck, Sparkles,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage } from "../lib/storage";
 import { computeMatchScore, isBulletAdopted } from "../lib/scoring";
 import { matchTier } from "../lib/matchTier";
 import { copyText, downloadDocx, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
-import type { CompiledVersion, Master, Segment } from "../types";
+import type { CompiledVersion, GapSeverity, Master, Segment } from "../types";
+
+// 实质差距严重度 → 标签 / 配色（hard_filter / important / minor）
+const GAP_SEVERITY: Record<GapSeverity, { label: string; color: string; bar: string }> = {
+  hard_filter: { label: "硬性门槛", color: "#e11d48", bar: "#f43f5e" },
+  important: { label: "重要差距", color: "#d97706", bar: "#fbbf24" },
+  minor: { label: "轻微差距", color: "#64748b", bar: "#94a3b8" },
+};
 
 const SEG_TYPE_LABEL: Record<Segment["type"], string> = {
   work: "工作经历", internship: "实习经历", project: "项目经历", education: "教育背景",
@@ -195,6 +203,37 @@ export default function CompletePage() {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* 模块「诚实差距」：实质差距 + 面试应对（只上屏、不入导出，差异化锚点） */}
+          {version.gapAnalysis.substantiveGaps.length > 0 && (
+            <div className="card" style={{ padding: 26, marginBottom: 24, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
+              <div style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: 8, color: "#475569" }}>
+                <ShieldCheck size={16} color="#4f46e5" /> 诚实差距 · 这些靠面试应对，不靠改写假装
+              </div>
+              <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
+                我们不会用改写让你看起来像另一个人。以下是简历改写补不上的真实差距，附面试应对建议——只在此处供你准备，不会写进导出的简历。
+              </div>
+              {version.gapAnalysis.substantiveGaps.map((g, i) => {
+                const sv = GAP_SEVERITY[g.severity];
+                const last = i === version.gapAnalysis.substantiveGaps.length - 1;
+                return (
+                  <div key={i} style={{ padding: "16px 18px", borderRadius: 12, background: "#fafbfc", border: "1px solid #eef0f5", borderLeft: `3px solid ${sv.bar}`, marginBottom: last ? 0 : 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: sv.color }}>{sv.label}</span>
+                      <span style={{ fontSize: 14.5, fontWeight: 600 }}>{g.jdRequirement}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "#94a3b8", marginBottom: 9, lineHeight: 1.55 }}>
+                      简历中无对应经历，改写无法补足——这是真实差距，不该靠改写假装具备。
+                    </div>
+                    <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65, display: "flex", gap: 8 }}>
+                      <Sparkles size={14} color="#6366f1" style={{ marginTop: 3, flexShrink: 0 }} />
+                      <span><b style={{ color: "#475569", fontWeight: 600 }}>面试应对 </b>{g.interviewStrategy}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

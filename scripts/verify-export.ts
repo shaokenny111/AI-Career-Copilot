@@ -99,5 +99,20 @@ if (!browser) {
   ok(!MARKERS.some((m) => text.includes(m)), "PDF 正文不含 🟢🟡🔴 标注符号");
 }
 
-console.log(`\n${pass ? "✅ 7B 验收通过" : "❌ 验收失败"}`);
+console.log("\n④ 诚实差距（7C）：substantiveGaps 只上屏、不入导出");
+// 代表性实质差距（形如 gap.ts/#3 产出）；故意用与简历正文无关的独特字串
+const gaps = [
+  { jdRequirement: "5 年以上团队管理经验", interviewStrategy: "弱化团队规模，强调跨部门影响力与项目主导经验" },
+  { jdRequirement: "电商 / 大模型应用场景经验", interviewStrategy: "面试前体验电商 AI 竞品，准备一份竞品分析作敲门砖" },
+];
+const gapTexts = gaps.flatMap((g) => [g.jdRequirement, g.interviewStrategy]);
+const printHtml = buildPrintHtml(model);
+const leaks = (s: string) => gapTexts.filter((t) => s.includes(t));
+ok(gaps.length > 0, `fixture 含 substantiveGaps ${gaps.length} 条（完成页可渲染）`);
+ok(leaks(full).length === 0, "复制全文不含任何差距文本");
+ok(leaks(printHtml).length === 0, "PDF 打印 HTML 不含任何差距文本");
+ok(leaks(xml).length === 0, "Word document.xml 不含任何差距文本");
+console.log("  （exportModel 仅由 includedSegments 派生、从不读 gapAnalysis → 差距天然不入导出）");
+
+console.log(`\n${pass ? "✅ 7B/7C 验收通过" : "❌ 验收失败"}`);
 process.exit(pass ? 0 : 1);
