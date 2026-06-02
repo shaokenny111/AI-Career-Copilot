@@ -8,9 +8,11 @@
 // 导出的是【干净简历文本】：纯 rewrittenText / userEditedText，不含 🟢🟡🔴 标注符号
 // （那是工作态的来源标识，不进投递版）。
 //
-// 7B-1（本文件初版）：纯文本，零第三方依赖——逐段复制 / 复制全文。
-// 7B-2 追加 .docx 下载（docx 库）。PDF 留 7B-3。
+// 7B-1：纯文本，零第三方依赖——逐段复制 / 复制全文。
+// 7B-2：追加 .docx 下载（docx@9.x）。PDF 留 7B-3。
 // ============================================================================
+
+import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 
 /** 一段的导出内容（标题 + 采纳后的 bullet 纯文本） */
 export interface ExportSegment {
@@ -54,4 +56,46 @@ export async function copyText(text: string): Promise<void> {
   const ok = document.execCommand("copy");
   document.body.removeChild(ta);
   if (!ok) throw new Error("复制失败");
+}
+
+// ---------- 7B-2：Word (.docx) ----------
+// docx@9.x（已核实当前版本 API）：Document({sections:[{children}]}) + Paragraph
+// （heading / bullet:{level} / children:[TextRun]）+ Packer。中文走 UTF-8，已在
+// OOXML 小样验证不乱码。
+
+/** 纯函数：ExportModel → docx Document（Node 可测，浏览器下载共用，单一构建逻辑）。
+ *  内容与"最终投递内容"逐字一致：标题(H1)=jdLabel，每段(H2)=title，bullet 列表。 */
+export function buildDocxDocument(model: ExportModel): Document {
+  const children: Paragraph[] = [
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      children: [new TextRun({ text: model.jdLabel || "投递版本" })],
+    }),
+  ];
+  for (const seg of model.segments) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 240, after: 60 },
+        children: [new TextRun({ text: seg.title })],
+      }),
+    );
+    for (const b of seg.bullets) {
+      children.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: b })] }));
+    }
+  }
+  return new Document({ sections: [{ children }] });
+}
+
+/** 浏览器下载 .docx（构建逻辑复用 buildDocxDocument）。 */
+export async function downloadDocx(model: ExportModel, filename: string): Promise<void> {
+  const blob = await Packer.toBlob(buildDocxDocument(model));
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.toLowerCase().endsWith(".docx") ? filename : `${filename}.docx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

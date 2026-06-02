@@ -18,12 +18,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
-  Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check,
+  Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check, FileType, Loader2,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage } from "../lib/storage";
 import { computeMatchScore, isBulletAdopted } from "../lib/scoring";
 import { matchTier } from "../lib/matchTier";
-import { copyText, modelToPlainText, segmentToPlainText, type ExportModel } from "../lib/export";
+import { copyText, downloadDocx, modelToPlainText, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, Master, Segment } from "../types";
 
 const SEG_TYPE_LABEL: Record<Segment["type"], string> = {
@@ -96,6 +96,19 @@ export default function CompletePage() {
     }
   };
 
+  // Word 导出（.docx）：构建中 / 失败提示
+  const [wordState, setWordState] = useState<"idle" | "busy" | "error">("idle");
+  const doWord = async () => {
+    setWordState("busy");
+    try {
+      await downloadDocx(exportModel, version?.name ?? "投递版本");
+      setWordState("idle");
+    } catch (e) {
+      console.error("[export] docx failed", e);
+      setWordState("error");
+    }
+  };
+
   if (!version || !master || !score) {
     return (
       <div className="mx-auto max-w-xl py-24 text-center">
@@ -115,6 +128,8 @@ export default function CompletePage() {
       <style>{`
         .gbtn { transition: all .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
         .cmpcol { overflow-y:auto; }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       {/* Header */}
@@ -230,7 +245,15 @@ export default function CompletePage() {
             <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
               导出的是上方"最终投递内容"的干净文本，与屏幕逐字一致。
             </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                className="gbtn"
+                disabled={exportModel.segments.length === 0 || wordState === "busy"}
+                onClick={doWord}
+                style={{ ...ghostBtn, padding: "10px 16px", fontSize: 13.5, opacity: exportModel.segments.length === 0 ? 0.5 : 1, cursor: wordState === "busy" ? "default" : "pointer" }}
+              >
+                {wordState === "busy" ? <><Loader2 size={15} className="spin" /> 生成中…</> : <><FileType size={15} /> 导出 Word (.docx)</>}
+              </button>
               <button
                 className="gbtn"
                 disabled={exportModel.segments.length === 0}
@@ -239,6 +262,7 @@ export default function CompletePage() {
               >
                 {copied === "all" ? <><Check size={15} /> 已复制全文</> : <><Copy size={15} /> 复制全文</>}
               </button>
+              {wordState === "error" && <span style={{ fontSize: 12.5, color: "#e11d48" }}>导出失败，请重试</span>}
             </div>
           </div>
 
