@@ -14,6 +14,7 @@ import UploadPage from "./pages/UploadPage";
 import CompilePage from "./pages/CompilePage";
 import GuidancePage from "./pages/GuidancePage";
 import WorkbenchPage from "./pages/WorkbenchPage";
+import CompletePage from "./pages/CompletePage";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="upload" element={<UploadPage />} />
           <Route path="compile" element={<CompilePage />} />
           <Route path="workbench/:versionId" element={<WorkbenchPage />} />
+          <Route path="complete/:versionId" element={<CompletePage />} />
           <Route path="guidance" element={<GuidancePage />} />
           <Route path="master" element={<MasterPage />} />
           <Route path="versions" element={<VersionsPage />} />

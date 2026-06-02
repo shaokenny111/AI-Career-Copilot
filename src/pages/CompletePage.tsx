@@ -1,0 +1,274 @@
+// ============================================================================
+// 完成页（Phase 7A）—— 骨架 + 路由 + 复用 scoring 的最终匹配度
+// ----------------------------------------------------------------------------
+// 视觉参考 _refs/ui/complete_final_v2.jsx。本步只做"读 + 展示"：
+//   · Header：logo 回首页 + 面包屑（公司·职位）+ 步骤条（当前=完成）+ 返回工作台
+//   · 完成标志 + 标题
+//   · 主角双环（HeroRing）：最终匹配度 —— 必须复用 src/lib/scoring.ts 的
+//     computeMatchScore，与工作台同一套分，两处分数必然一致（同函数同入参）
+//   · 各段改写采纳明细（adopted/total）
+//   · 采纳后的 bullet 列表（最终写入子版的内容；采纳判定复用 isBulletAdopted）
+//   · 底部出口：返回我的简历 / 再编译一个岗位
+//
+// 明确不做（留给 7B/7C/7D）：导出（PDF/Word/复制）、诚实差距、投递标记。
+// 数据全部来自 storage 的 CompiledVersion，非写死。本步不打 Gemini、不烧配额。
+// ============================================================================
+
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
+  Globe, FileText, ChevronRight, Home, RotateCcw,
+} from "lucide-react";
+import { getCompiledVersion, loadStorage } from "../lib/storage";
+import { computeMatchScore, isBulletAdopted } from "../lib/scoring";
+import { matchTier } from "../lib/matchTier";
+import type { CompiledVersion, Master, Segment } from "../types";
+
+const SEG_TYPE_LABEL: Record<Segment["type"], string> = {
+  work: "工作经历", internship: "实习经历", project: "项目经历", education: "教育背景",
+  skill: "技能特长", certificate: "证书", award: "获奖", activity: "课外活动", other: "其他",
+};
+
+export default function CompletePage() {
+  const navigate = useNavigate();
+  const { versionId } = useParams();
+
+  const master = useMemo<Master | null>(() => loadStorage().master, []);
+  const version = useMemo<CompiledVersion | null>(
+    () => (versionId ? getCompiledVersion(versionId) : null),
+    [versionId],
+  );
+
+  const [showDetail, setShowDetail] = useState(false);
+
+  // 最终匹配度：复用工作台同一纯函数、同一入参 → 两处分数必然一致
+  const score = useMemo(
+    () =>
+      version
+        ? computeMatchScore(
+            version.segmentDecisions,
+            version.jobDescription.requirements ?? [],
+            version.requirementMatches,
+          )
+        : null,
+    [version],
+  );
+
+  // 已纳入段落（顺序跟随母版），连带其采纳后的 bullet
+  const includedSegments = useMemo(() => {
+    if (!version || !master) return [];
+    return version.segmentDecisions
+      .filter((d) => d.finalIncluded)
+      .map((d) => {
+        const seg = master.segments.find((s) => s.id === d.segmentId);
+        const adoptedBullets = d.bullets.filter(isBulletAdopted);
+        return seg ? { seg, total: d.bullets.length, adoptedBullets } : null;
+      })
+      .filter((x): x is { seg: Segment; total: number; adoptedBullets: typeof version.segmentDecisions[number]["bullets"] } => !!x);
+  }, [version, master]);
+
+  if (!version || !master || !score) {
+    return (
+      <div className="mx-auto max-w-xl py-24 text-center">
+        <h1 className="mb-2 text-xl font-bold text-slate-900">没找到这个子版</h1>
+        <p className="mb-6 text-sm font-medium text-slate-400">可能尚未编译，或链接已失效。</p>
+        <button onClick={() => navigate("/")} className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white">
+          返回首页
+        </button>
+      </div>
+    );
+  }
+
+  const jd = version.jobDescription;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <style>{`
+        .gbtn { transition: all .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
+        .cmpcol { overflow-y:auto; }
+      `}</style>
+
+      {/* Header */}
+      <header style={{ height: 60, borderBottom: "1px solid #e2e8f0", background: "rgba(255,255,255,.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", position: "relative", zIndex: 2 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div title="返回首页" onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+            <div style={{ width: 30, height: 30, background: "linear-gradient(135deg,#6366f1,#4f46e5)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(79,70,229,.3)" }}><FileText size={16} color="#fff" /></div>
+            <span className="serif" style={{ fontWeight: 600, fontSize: 16 }}>AI Resume Compiler</span>
+          </div>
+          <ChevronRight size={14} color="#cbd5e1" />
+          <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>{jd.company} · {jd.position}</span>
+        </div>
+        <StepBar current={2} />
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="gbtn" style={ghostBtn}><Globe size={15} /> 中 / EN</button>
+          <button className="gbtn" onClick={() => navigate(`/workbench/${version.id}`)} style={ghostBtn}><ArrowLeft size={15} /> 返回工作台</button>
+        </div>
+      </header>
+
+      <div style={{ position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 380, background: "radial-gradient(55% 55% at 50% 0%, rgba(99,102,241,.10), transparent 70%)", pointerEvents: "none" }} />
+
+        <div style={{ maxWidth: 720, margin: "0 auto", padding: "44px 24px 80px", position: "relative", zIndex: 1 }}>
+
+          {/* 完成标志 + 标题 */}
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", padding: "5px 14px", borderRadius: 99, marginBottom: 14 }}>
+              <CheckCircle2 size={15} /> 编译完成
+            </div>
+            <div className="serif" style={{ fontSize: 28, fontWeight: 600 }}>你的投递版本已生成</div>
+            <div style={{ fontSize: 14, color: "#94a3b8", marginTop: 6 }}>针对「{jd.company} · {jd.position}」</div>
+          </div>
+
+          {/* 模块1：最终匹配度双环（主角，复用 scoring.ts） */}
+          <div className="card" style={{ padding: 36, marginBottom: 28, display: "flex", alignItems: "center", gap: 36, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, boxShadow: "0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06)" }}>
+            <HeroRing value={score.scoreNow} delta={score.delta} />
+            <div style={{ flex: 1 }}>
+              <div style={sectionTitle}>整份简历匹配度</div>
+              <div style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, margin: "12px 0" }}>
+                按 JD 要求<b style={{ fontWeight: 600 }}>加权命中</b>计算，基于你实际采纳的改写。
+                <br />改写前 {score.scoreBefore} 分，当前 <b style={{ fontWeight: 600, color: matchTier(score.scoreNow).color }}>{score.scoreNow}</b> 分（{matchTier(score.scoreNow).label}）。
+              </div>
+              <button onClick={() => setShowDetail(!showDetail)} className="gbtn" style={{ ...ghostBtn, marginTop: 6, padding: "7px 13px", fontSize: 12.5 }}>
+                {showDetail ? <ChevronUp size={14} /> : <ChevronDown size={14} />} 各段采纳明细
+              </button>
+            </div>
+          </div>
+
+          {/* 各段改写采纳情况 */}
+          {showDetail && (
+            <div className="card" style={{ padding: 22, marginBottom: 28, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
+              <div style={{ ...sectionTitle, marginBottom: 16 }}>各段改写采纳情况</div>
+              {includedSegments.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#94a3b8" }}>本子版没有纳入任何段落。</div>
+              ) : (
+                includedSegments.map(({ seg, total, adoptedBullets }) => (
+                  <div key={seg.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "9px 0", fontSize: 13.5 }}>
+                    <div style={{ width: 180, color: "#334155", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{seg.title}</div>
+                    <div style={{ flex: 1, height: 6, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${total ? (adoptedBullets.length / total) * 100 : 0}%`, background: "linear-gradient(90deg,#6366f1,#4f46e5)", borderRadius: 99 }} />
+                    </div>
+                    <div style={{ width: 92, textAlign: "right", color: "#64748b" }}>采纳 {adoptedBullets.length}/{total} 条</div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* 模块2：采纳后的最终内容（展示，不导出） */}
+          <div className="card" style={{ padding: 26, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
+            <div style={sectionTitle}>最终投递内容</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
+              以下是采纳后将写入这份投递版的内容（红色补充仅在你确认后纳入）。
+            </div>
+            {includedSegments.length === 0 ? (
+              <div style={{ fontSize: 13.5, color: "#94a3b8" }}>本子版没有纳入任何段落。</div>
+            ) : (
+              includedSegments.map(({ seg, adoptedBullets }) => (
+                <div key={seg.id} style={{ marginBottom: 22 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: "#1e293b" }}>{seg.title}</div>
+                  <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2, marginBottom: 10 }}>{SEG_TYPE_LABEL[seg.type]}</div>
+                  {adoptedBullets.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "#cbd5e1", paddingLeft: 14 }}>（本段暂无已采纳的 bullet）</div>
+                  ) : (
+                    <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 7 }}>
+                      {adoptedBullets.map((b) => (
+                        <li key={b.id} style={{ fontSize: 14, color: "#334155", lineHeight: 1.65 }}>
+                          {b.userEditedText ?? b.rewrittenText}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* 底部出口 */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 12, paddingTop: 28 }}>
+            <button className="gbtn" onClick={() => navigate("/master")} style={ghostBtn}><Home size={15} /> 返回我的简历</button>
+            <button className="gbtn" onClick={() => navigate("/upload")} style={ghostBtn}><RotateCcw size={15} /> 再编译一个岗位</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================ 主角双环 ============================
+
+function CountUp({ to, duration = 1400 }: { to: number; duration?: number }) {
+  const [v, setV] = useState(0);
+  const raf = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    let start: number | undefined;
+    const step = (t: number) => {
+      if (start === undefined) start = t;
+      const p = Math.min((t - start) / duration, 1);
+      setV(Math.round((1 - Math.pow(1 - p, 3)) * to));
+      if (p < 1) raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => {
+      if (raf.current !== undefined) cancelAnimationFrame(raf.current);
+    };
+  }, [to, duration]);
+  return <>{v}</>;
+}
+
+/** 完成页主角环：四级分色取自 lib/matchTier（与工作台一致） */
+function HeroRing({ value, delta, size = 188, stroke = 15 }: { value: number; delta: number; size?: number; stroke?: number }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - Math.max(0, Math.min(100, value)) / 100);
+  const tier = matchTier(value);
+  return (
+    <div style={{ position: "relative", width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <defs>
+          <linearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={tier.light} />
+            <stop offset="100%" stopColor={tier.color} />
+          </linearGradient>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#eef0f5" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="url(#heroGrad)" strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} style={{ transition: "stroke-dashoffset 1.5s cubic-bezier(.22,1,.36,1)" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <span className="serif" style={{ fontSize: 58, fontWeight: 600, color: tier.color, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}><CountUp to={value} /></span>
+        {delta > 0 && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12.5, fontWeight: 600, color: "#059669", background: "#d1fae5", padding: "2px 9px", borderRadius: 99, marginTop: 8 }}>
+            <TrendingUp size={12} /> 较改写前 +{delta}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================ 步骤条 ============================
+
+function StepBar({ current }: { current: number }) {
+  const steps = ["上传", "编译", "完成"];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+      {steps.map((s, i) => {
+        const active = i === current, done = i < current;
+        return (
+          <span key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, color: active ? "#4f46e5" : done ? "#059669" : "#cbd5e1", fontWeight: active ? 600 : 500 }}>
+              <span style={{ width: 19, height: 19, borderRadius: 99, background: active ? "#4f46e5" : done ? "#059669" : "#f1f5f9", color: active || done ? "#fff" : "#94a3b8", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✓" : i + 1}</span>
+              {s}
+            </span>
+            {i < steps.length - 1 && <span style={{ width: 22, height: 1, background: "#e2e8f0" }} />}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================ 样式常量 ============================
+
+const sectionTitle: CSSProperties = { fontSize: 12, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: ".06em" };
+const ghostBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 9, padding: "8px 14px", fontSize: 13, color: "#475569", cursor: "pointer" };

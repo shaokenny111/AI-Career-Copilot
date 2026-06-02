@@ -141,6 +141,7 @@ export default function WorkbenchPage() {
 
   const doneCount = segments.filter((s) => statusOf(s.id) === "done").length;
   const total = segments.length;
+  const allDone = total > 0 && doneCount === total;
   const idx = segments.findIndex((s) => s.id === effectiveActive);
   const go = (delta: number) => {
     const ni = Math.max(0, Math.min(segments.length - 1, idx + delta));
@@ -226,12 +227,23 @@ export default function WorkbenchPage() {
         .wbcol { overflow-y:auto; }
       `}</style>
 
-      {/* 上下文条：面包屑（公司·职位）+ 线性步骤（当前=编译） */}
+      {/* 上下文条：面包屑（公司·职位）+ 线性步骤（当前=编译）+ 完成编译 */}
       <div style={{ height: 44, borderBottom: "1px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>
           {jd.company} · {jd.position}
         </div>
-        <StepBar current={1} />
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <StepBar current={1} />
+          {!allDone && <span style={{ fontSize: 12, color: "#94a3b8" }}>还有 {total - doneCount} 段待处理</span>}
+          <button
+            className="pbtn"
+            onClick={() => allDone && navigate(`/complete/${version.id}`)}
+            disabled={!allDone}
+            style={{ ...primaryBtn, padding: "7px 14px", fontSize: 12.5, opacity: allDone ? 1 : 0.45, cursor: allDone ? "pointer" : "not-allowed", background: allDone ? primaryBtn.background : "#94a3b8" }}
+          >
+            <Sparkles size={14} /> 完成编译
+          </button>
+        </div>
       </div>
 
       {/* 三栏 */}

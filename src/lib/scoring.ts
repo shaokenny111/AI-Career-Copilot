@@ -87,8 +87,9 @@ export interface MatchScore {
 
 // ---------- bullet 小工具 ----------
 
-/** 该 bullet 是否计入评分（green/yellow 默认采纳；red 需确认采纳） */
-function isAdopted(b: RewrittenBullet): boolean {
+/** 该 bullet 是否计入评分 / 写入最终版（green/yellow 默认采纳；red 需确认采纳）。
+ *  导出：完成页"采纳后的 bullet 列表"必须用这同一条判定，避免与评分口径漂移。 */
+export function isBulletAdopted(b: RewrittenBullet): boolean {
   if (b.sourceLevel === "red") {
     const a = b.redConfirmation?.action;
     return a === "accept" || a === "modify_and_accept";
@@ -110,7 +111,7 @@ function collectBulletStates(
   for (const d of segmentDecisions) {
     if (!d.finalIncluded) continue;
     for (const b of d.bullets) {
-      map.set(b.id, { adopted: isAdopted(b), green: b.sourceLevel === "green" });
+      map.set(b.id, { adopted: isBulletAdopted(b), green: b.sourceLevel === "green" });
     }
   }
   return map;
@@ -214,7 +215,7 @@ export function computeSegmentRequirements(
   decision.bullets.forEach((b, i) => {
     localIndex.set(b.id, i + 1);
     localState.set(b.id, {
-      adopted: isAdopted(b),
+      adopted: isBulletAdopted(b),
       green: b.sourceLevel === "green",
     });
   });
