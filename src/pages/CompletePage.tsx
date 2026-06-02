@@ -19,11 +19,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
   Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check, FileType, Loader2, FileDown,
-  ShieldCheck, Sparkles,
+  ShieldCheck, Sparkles, Send, X,
 } from "lucide-react";
-import { getCompiledVersion, loadStorage } from "../lib/storage";
+import { getCompiledVersion, loadStorage, setApplicationMark } from "../lib/storage";
+import { useAppStorage } from "../lib/useAppStorage";
 import { computeMatchScore, isBulletAdopted } from "../lib/scoring";
 import { matchTier } from "../lib/matchTier";
+import { formatRelativeDate } from "../lib/datetime";
 import { copyText, downloadDocx, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, GapSeverity, Master, Segment } from "../types";
 
@@ -48,6 +50,8 @@ export default function CompletePage() {
     () => (versionId ? getCompiledVersion(versionId) : null),
     [versionId],
   );
+  // 投递标记走响应式存储：标记/取消即时反映，且首页子版库同步更新
+  const liveStore = useAppStorage();
 
   const [showDetail, setShowDetail] = useState(false);
 
@@ -130,6 +134,10 @@ export default function CompletePage() {
   }
 
   const jd = version.jobDescription;
+  // 取响应式存储里本子版的投递标记（回退到 mount 时的快照）
+  const liveMark =
+    liveStore.compiledVersions.find((v) => v.id === version.id)?.applicationMark ??
+    version.applicationMark;
 
   return (
     <div style={{ position: "relative" }}>
@@ -313,9 +321,39 @@ export default function CompletePage() {
             </div>
           </div>
 
+          {/* 模块4：投递标记（7D，记录日期；可取消；实时同步到首页子版库） */}
+          <div style={{ marginTop: 24, borderRadius: 16, border: "1px solid #e0e7ff", background: "linear-gradient(135deg,#f5f3ff,#eef2ff)", padding: 22, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 600 }}>投出去了吗？标记一下</div>
+              <div style={{ fontSize: 12.5, color: "#6366f1", marginTop: 3 }}>
+                {liveMark.applied
+                  ? `已于 ${liveMark.appliedAt ? formatRelativeDate(liveMark.appliedAt) : "今天"} 投递 · 首页子版库已同步`
+                  : "标记后可在首页子版库一眼看到哪些投了、哪些没投"}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {liveMark.applied && (
+                <span style={{ fontSize: 12.5, color: "#059669", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <CheckCircle2 size={14} /> 已标记
+                </span>
+              )}
+              <button
+                className={liveMark.applied ? "gbtn" : "pbtn"}
+                onClick={() => setApplicationMark(version.id, !liveMark.applied)}
+                style={
+                  liveMark.applied
+                    ? { ...ghostBtn, padding: "10px 16px", fontSize: 13.5 }
+                    : { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(79,70,229,.25)" }
+                }
+              >
+                {liveMark.applied ? <><X size={15} /> 取消标记</> : <><Send size={15} /> 标记为已投递</>}
+              </button>
+            </div>
+          </div>
+
           {/* 底部出口 */}
           <div style={{ display: "flex", justifyContent: "center", gap: 12, paddingTop: 28 }}>
-            <button className="gbtn" onClick={() => navigate("/master")} style={ghostBtn}><Home size={15} /> 返回我的简历</button>
+            <button className="gbtn" onClick={() => navigate("/")} style={ghostBtn}><Home size={15} /> 返回我的简历</button>
             <button className="gbtn" onClick={() => navigate("/upload")} style={ghostBtn}><RotateCcw size={15} /> 再编译一个岗位</button>
           </div>
         </div>

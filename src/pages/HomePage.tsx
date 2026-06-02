@@ -13,6 +13,7 @@ import {
   CheckCircle2, FileEdit, Layers, Database, ArrowRight, RefreshCw, Plus,
 } from "lucide-react";
 import { loadStorage } from "../lib/storage";
+import { useAppStorage } from "../lib/useAppStorage";
 import { matchTier } from "../lib/matchTier";
 import { formatRelativeDate } from "../lib/datetime";
 import MiniRing from "../components/MiniRing";
@@ -25,7 +26,7 @@ const STATUS = {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const view = useMemo(() => loadStorage(), []);
+  const view = useAppStorage(); // 响应式：投递标记等变更实时反映
   const master = view.master;
 
   // 子版按最近更新排序，最新者置顶

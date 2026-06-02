@@ -48,6 +48,26 @@ function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
+// ---------- 响应式订阅（useSyncExternalStore 用；React 内置，非新状态库）----------
+// 缓存快照 + 订阅者集合：saveStorage 成功后刷新快照并通知，跨页实时反映。
+// getStorageSnapshot 在两次变更之间返回同一引用，避免 useSyncExternalStore 死循环。
+let cachedSnapshot: AppStorage | null = null;
+const subscribers = new Set<() => void>();
+
+/** 订阅存储变更（返回取消订阅函数）。 */
+export function subscribeStorage(cb: () => void): () => void {
+  subscribers.add(cb);
+  return () => {
+    subscribers.delete(cb);
+  };
+}
+
+/** 当前存储快照（引用稳定，仅在 saveStorage 后变化）。 */
+export function getStorageSnapshot(): AppStorage {
+  if (!cachedSnapshot) cachedSnapshot = loadStorage();
+  return cachedSnapshot;
+}
+
 /**
  * 从任意旧版本依次升级到 CURRENT_SCHEMA_VERSION。
  * 路径中缺迁移函数视为不可恢复 —— 直接回退默认值，避免把脏数据塞进 UI。
@@ -117,6 +137,9 @@ export function saveStorage(data: AppStorage): void {
   };
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    // 刷新快照（新引用）并通知订阅者 → 已挂载组件实时重渲染
+    cachedSnapshot = payload;
+    subscribers.forEach((cb) => cb());
   } catch (err) {
     console.error("[storage] Failed to save", err);
   }
@@ -150,6 +173,28 @@ export function updateCompiledVersion(version: CompiledVersion): void {
     ...store,
     compiledVersions: store.compiledVersions.map((v) =>
       v.id === version.id ? version : v,
+    ),
+  });
+}
+
+/**
+ * 设置某子版的投递标记（7D）。applied=true 记录当前时间为 appliedAt，false 清空。
+ * 不改 updatedAt（投递是元数据标记，不应改变子版库的"最后更新"排序）。
+ * applicationMark 字段自始就在 schema 内，本操作不触发 schema 升级。
+ */
+export function setApplicationMark(versionId: string, applied: boolean): void {
+  const store = loadStorage();
+  saveStorage({
+    ...store,
+    compiledVersions: store.compiledVersions.map((v) =>
+      v.id === versionId
+        ? {
+            ...v,
+            applicationMark: applied
+              ? { applied: true, appliedAt: new Date().toISOString() }
+              : { applied: false },
+          }
+        : v,
     ),
   });
 }
