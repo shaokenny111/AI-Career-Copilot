@@ -11,8 +11,11 @@ import type { AppStorage, CompiledVersion } from "../types";
 
 const STORAGE_KEY = "ai_resume_compiler_v2";
 
-/** 当前 AppStorage 的 schema 版本。结构变化时递增并补一条 MIGRATIONS。 */
-export const CURRENT_SCHEMA_VERSION = 1;
+/** 当前 AppStorage 的 schema 版本。结构变化时递增并补一条 MIGRATIONS。
+ *  v2：CompiledVersion 引入 requirementMatches、bullet.id、jobDescription.requirements
+ *  （确定性匹配度重构）。开发期旧数据均为测试数据，不写迁移函数 → 自动重置为默认值，
+ *  保持 scoring 单路径干净；用户重新编译即可。 */
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
  * 升级钩子：第 N 项负责把"version N 的数据"转成"version N+1 的数据"，

@@ -21,3 +21,5 @@ export { analyzeGap } from "./gap"; // #3 差距分析
 export { classifyResumeType } from "./classify"; // #4 类型识别
 export { generateGuidanceQuestions } from "./questions"; // #5 应届生提问
 export { convertToStar } from "./star"; // #6 STAR 转换
+export { parseJd } from "./parseJd"; // #8 JD 要求提取（只看 JD）
+export { matchRequirements } from "./matchRequirements"; // #9 要求↔bullet 语义映射

@@ -326,8 +326,14 @@ function buildPrompt(input: RewriteInput): string {
 
 // ---------- 原始输出 → types.ts 契约（snake_case → camelCase）----------
 
+/** bullet 稳定 id：生成即赋值，作为 Prompt #9 映射引用的身份锚点 */
+function genBulletId(): string {
+  return `blt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function toContract(raw: z.infer<typeof rawSchema>): RewriteOutput {
   const bullets: RewrittenBullet[] = raw.bullets.map((b) => ({
+    id: genBulletId(),
     rewrittenText: b.rewritten_text,
     originalText: b.original_text,
     sourceLevel: b.source_level,

@@ -105,6 +105,7 @@ export async function runCompile(
     name: defaultVersionName(jd, now),
     jobDescription: jd,
     segmentDecisions,
+    requirementMatches: [], // 过渡占位：下一步接入 #8 parseJd + #9 matchRequirements
     gapAnalysis, // overallScore 已是 0 占位（Phase 6 回填）
     applicationMark: { applied: false },
     language: master.language,

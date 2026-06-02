@@ -44,6 +44,13 @@ export type SourceLevel =
 /** 内容相关性评估（Prompt #2 输出） */
 export type Relevance = "high" | "medium" | "low";
 
+/** JD 要求的权重档（Prompt #8 输出；文档 2.6 的 Hard / Title / Context）
+ *  - hard：硬性门槛（学历/年限/必备证书或硬技能），达不到通常直接被刷 → 2x
+ *  - title：与职位职责直接对应的核心能力（这份工作"主要在做什么"）→ 1.5x
+ *  - context：加分项 / "优先者优先" / 软素质，非必须 → 1x
+ *  枚举名故意与文档 2.6 术语一致，看代码 / 看文档不用心理翻译。 */
+export type RequirementImportance = "hard" | "title" | "context";
+
 /** 对一段经历的处理建议 */
 export type SuggestedAction =
   | "keep_and_optimize"     // 保留并优化
@@ -157,6 +164,11 @@ export interface Master {
 
 /** 一条改写的 bullet（Prompt #1 输出的最小单位） */
 export interface RewrittenBullet {
+  /** 稳定唯一 id（由 Prompt #1 在生成时赋值）。
+   *  bullet 的身份锚点——Prompt #9 的"要求↔bullet 映射"靠它引用，
+   *  绝不用 (segmentId, index)：顺序一变就错位。 */
+  id: string;
+
   /** 改写后的文本 */
   rewrittenText: string;
 
@@ -256,6 +268,28 @@ export interface ApplicationMark {
   appliedAt?: string;
 }
 
+/** 从 JD 提取的一条结构化要求（Prompt #8 输出；id 由 compile 赋值）。
+ *  铁律：要求只从 JD 提取，绝不看简历——否则 AI 会少报"简历没覆盖"的要求，
+ *  破坏诚实天花板。这些要求是确定性匹配度的【分母全集】。 */
+export interface JdRequirement {
+  /** 稳定 id（如 req_xxx；compile 生成，供 Prompt #9 映射引用） */
+  id: string;
+  /** 要求文本（保留 JD 原文措辞与语言） */
+  text: string;
+  /** 权重档 */
+  importance: RequirementImportance;
+}
+
+/** 一条 JD 要求 ↔ 命中它的 bullet（Prompt #9 在编译期建立的语义映射）。
+ *  分工：编译期 AI 建映射（跨语言语义判定），运行期 scoring 只做确定性加权，
+ *  不再跑 AI。 */
+export interface RequirementMatch {
+  /** 对应 JdRequirement.id */
+  requirementId: string;
+  /** 命中该要求的 bullet id 列表（RewrittenBullet.id；空数组=暂无 bullet 覆盖） */
+  bulletIds: string[];
+}
+
 /** JD 信息（用户输入） */
 export interface JobDescription {
   /** 公司名称 */
@@ -264,6 +298,9 @@ export interface JobDescription {
   position: string;
   /** JD 原文 */
   rawText: string;
+  /** AI 提取的结构化要求（Prompt #8 编译时填充；用户输入态尚无此字段，故可选）。
+   *  确定性匹配度的分母来源——含简历未覆盖的要求，构成诚实天花板。 */
+  requirements?: JdRequirement[];
   /** AI 提取的核心要求列表 */
   coreRequirements?: string[];
   /** AI 提取的关键词 */
@@ -286,6 +323,10 @@ export interface CompiledVersion {
 
   /** 对每个母版段落的处理决策 */
   segmentDecisions: SegmentDecision[];
+
+  /** Prompt #9 编译期建立的"要求↔bullet"映射。
+   *  运行期 scoring 只读它做确定性加权，绝不再跑 AI。 */
+  requirementMatches: RequirementMatch[];
 
   /** 差距分析结果 */
   gapAnalysis: GapAnalysis;
@@ -432,6 +473,35 @@ export interface GuidanceQuestionsOutput {
     /** 是否允许跳过 */
     skipAllowed: boolean;
   }>;
+}
+
+// ---------- Prompt #8：JD 要求提取（只看 JD，不看简历）----------
+// 铁律：输入只有 JD。看简历会让 AI 少报简历没覆盖的要求，破坏诚实天花板。
+
+export interface ParseJdInput {
+  jobDescription: JobDescription;
+}
+
+export interface ParseJdOutput {
+  /** 提取出的要求（无 id；id 由 compile 赋值后成为 JdRequirement） */
+  requirements: Array<{
+    text: string;
+    importance: RequirementImportance;
+  }>;
+}
+
+// ---------- Prompt #9：要求 ↔ bullet 语义映射（跨语言）----------
+// 编译期一次性建立映射；语义 + 跨语言判定（英文要求 ↔ 中文 bullet 也能命中）。
+
+export interface MatchRequirementsInput {
+  /** 带 id 的 JD 要求（compile 已赋 id） */
+  requirements: JdRequirement[];
+  /** 全部已纳入段落的 bullet（id + 文本） */
+  bullets: Array<{ id: string; text: string }>;
+}
+
+export interface MatchRequirementsOutput {
+  matches: RequirementMatch[];
 }
 
 // ---------- Prompt #6：STAR 格式转换 ----------
