@@ -213,7 +213,13 @@ export interface SegmentDecision {
   suggestedAction: SuggestedAction;
 
   /** 该段在本子版中是否被采纳（前端规则可能 override AI 建议，
-   *  比如：低相关但当前在职 → 自动降级为 keep_simplified） */
+   *  比如：低相关但当前在职 → 自动降级为 keep_simplified）。
+   *
+   *  ⚠️ 地雷预警（隐藏段当前只读）：finalIncluded=false 的段，compile 把 bullets 置空、
+   *  且从未进过 #9 matchRequirements，因此在 requirementMatches 里没有任何映射。
+   *  工作台对隐藏段只做只读展示。若未来新增"重新纳入"能力，绝不能只翻这个标志位——
+   *  必须对被重新纳入的段补跑 #1 rewrite（拿 bullet + blt_ id）+ #9（拿要求↔bullet 映射），
+   *  否则该段 bullet 无映射、采纳了也永远不进分子，静默违反"随采纳实时算"。 */
   finalIncluded: boolean;
 
   /** 该段的所有改写 bullet（仅 finalIncluded=true 时有内容） */
