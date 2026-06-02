@@ -106,11 +106,15 @@ export async function callGeminiProxy(body: GeminiRequestBody): Promise<string> 
   return text;
 }
 
-/** 默认模型与降级顺序（配额受限时依次回退），沿用 V1.0 配置 */
+/** 默认模型与降级顺序（配额受限时依次回退）。
+ *  ⚠️ 旧的 gemini-1.5-flash / 1.5-pro 在当前 v1beta 已下线（404）——primary 撞 429
+ *  会 fallback 到死模型、整次编译失败。改用经 ListModels 核实、当前可用的 GA 模型：
+ *  gemini-3.1-flash-lite（主）→ 2.5-flash-lite → 2.5-flash（均非 preview、支持
+ *  generateContent + responseJsonSchema）。 */
 export const DEFAULT_MODELS = [
   "gemini-3.1-flash-lite",
-  "gemini-1.5-flash",
-  "gemini-1.5-pro",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
 ];
 
 /** 文档 2.1：改写/分级类任务用低温，保证输出稳定不发散 */
