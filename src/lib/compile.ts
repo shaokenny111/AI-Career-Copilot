@@ -1,14 +1,20 @@
 // ============================================================================
 // 编译管线（compile）—— master + JD → CompiledVersion 草稿
 // ----------------------------------------------------------------------------
-// Phase 5 主链路。对母版每段经历 + 目标 JD，并发跑三个互不依赖的 Prompt：
-//   #2 relevance（每段相关性 + 取舍建议）
-//   #1 rewrite  （每段改写成三色标注 bullets，逐段调用）
-//   #3 gap      （表达性 / 实质性差距 + 整体建议）
-// 再把三者组装成 types.ts 的 CompiledVersion（segmentDecisions / gapAnalysis…）。
+// 两相管线。
 //
-// 铁律遵守：三个 Prompt 的输入都经 format.ts 序列化，强制带 timeRange + isCurrent，
-// 不在传给 AI 时丢时间字段。
+// 【第一相】对母版每段经历 + 目标 JD，并发跑四个互不依赖的 Prompt：
+//   #2 relevance （每段相关性 + 取舍建议）
+//   #1 rewrite   （每段改写成三色标注 bullets，逐段调用；bullet 自带稳定 id）
+//   #3 gap       （表达性 / 实质性差距 + 整体建议）
+//   #8 parseJd   （只看 JD 提取要求清单 + 权重档——分母全集=诚实天花板）
+//
+// 【第二相】用第一相产物（带 id 的要求 + 已纳入段落的全部 bullet）跑：
+//   #9 matchRequirements（编译期建立"要求↔bullet"语义映射，跨语言）
+// 映射只在编译期算一次；运行期 scoring 只读它做确定性加权，绝不再跑 AI。
+//
+// 铁律遵守：所有 Prompt 的简历输入都经 format.ts 序列化，强制带 timeRange +
+// isCurrent；#8 只接收 JD，绝不掺简历（否则会漏报未覆盖要求、破坏诚实天花板）。
 //
 // overallScore 仍置 0 占位（gap.ts 已置 0）——匹配度是确定性加权命中率，
 // 由 Phase 6 工作台随用户采纳实时计算，绝不在本步让 AI 打分。
@@ -16,12 +22,19 @@
 
 import type {
   CompiledVersion,
+  JdRequirement,
   JobDescription,
   Master,
   RewrittenBullet,
   SegmentDecision,
 } from "../types";
-import { analyzeGap, evaluateRelevance, rewriteSegment } from "./gemini";
+import {
+  analyzeGap,
+  evaluateRelevance,
+  matchRequirements,
+  parseJd,
+  rewriteSegment,
+} from "./gemini";
 
 /** 生成稳定随机 id（与 resumeIntake 同风格，无第三方依赖） */
 function genId(prefix: string): string {
@@ -41,9 +54,11 @@ function defaultVersionName(jd: JobDescription, when: Date): string {
 /**
  * 跑一次完整编译，返回组装好的 CompiledVersion 草稿（不落盘，由调用方决定存储）。
  *
- * 并发策略：#2 / #3 各一次调用，#1 按段并发；三组一起 Promise.all。
- * 任一调用失败（含 zod 校验失败、配额耗尽）会让整个 Promise.all 拒绝，
- * 由调用方捕获并提示重试——草稿要么完整生成，要么不生成，不出半成品。
+ * 并发策略：
+ *   第一相 — #2 / #3 / #8 各一次调用，#1 按段并发；四组一起 Promise.all。
+ *   第二相 — #9 用第一相产物建立要求↔bullet 映射。
+ * 任一调用失败（含 zod 校验失败、配额耗尽）会让 Promise 拒绝，由调用方捕获并提示
+ * 重试——草稿要么完整生成，要么不生成，不出半成品。
  */
 export async function runCompile(
   master: Master,
@@ -51,7 +66,8 @@ export async function runCompile(
 ): Promise<CompiledVersion> {
   const segments = master.segments;
 
-  const [relevanceOut, gapAnalysis, rewrites] = await Promise.all([
+  // ── 第一相：相关性 / 差距 / 改写 / JD 要求提取（互不依赖，并发）──
+  const [relevanceOut, gapAnalysis, rewrites, parsedJd] = await Promise.all([
     evaluateRelevance({ segments, jobDescription: jd }),
     analyzeGap({ segments, jobDescription: jd }),
     Promise.all(
@@ -61,7 +77,15 @@ export async function runCompile(
           .bullets,
       })),
     ),
+    parseJd({ jobDescription: jd }), // 铁律：只传 JD，不传 segments
   ]);
+
+  // JD 要求赋稳定 id → JdRequirement[]（#9 映射与运行期评分都靠它引用）
+  const requirements: JdRequirement[] = parsedJd.requirements.map((r) => ({
+    id: genId("req"),
+    text: r.text,
+    importance: r.importance,
+  }));
 
   const evalById = new Map(
     relevanceOut.evaluations.map((e) => [e.segmentId, e]),
@@ -96,6 +120,17 @@ export async function runCompile(
     };
   });
 
+  // ── 第二相：要求↔bullet 语义映射（#9）──
+  // 只取已纳入段落的 bullet（隐藏段 bullets 为空）；用 rewrittenText 作为匹配文本
+  // （编译期尚无用户编辑）。
+  const allBullets = segmentDecisions.flatMap((d) =>
+    d.bullets.map((b) => ({ id: b.id, text: b.rewrittenText })),
+  );
+  const { matches: requirementMatches } = await matchRequirements({
+    requirements,
+    bullets: allBullets,
+  });
+
   const now = new Date();
   const nowIso = now.toISOString();
 
@@ -103,9 +138,10 @@ export async function runCompile(
     id: genId("ver"),
     masterId: master.id,
     name: defaultVersionName(jd, now),
-    jobDescription: jd,
+    // JD 带上结构化要求（确定性匹配度的分母全集=诚实天花板）
+    jobDescription: { ...jd, requirements },
     segmentDecisions,
-    requirementMatches: [], // 过渡占位：下一步接入 #8 parseJd + #9 matchRequirements
+    requirementMatches,
     gapAnalysis, // overallScore 已是 0 占位（Phase 6 回填）
     applicationMark: { applied: false },
     language: master.language,
