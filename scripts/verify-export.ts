@@ -6,13 +6,15 @@
 // 跑法：npx tsx scripts/verify-export.ts
 // ============================================================================
 
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Packer } from "docx";
+import { PDFParse } from "pdf-parse";
 import {
   buildDocxDocument,
+  buildPrintHtml,
   modelToPlainText,
   segmentToPlainText,
   type ExportModel,
@@ -66,6 +68,36 @@ ok(xml.includes("海晟佛山金融租赁有限公司 项目经理助理") && xm
 ok(xml.includes("熟练使用 SQL 进行业务数据查询与分析"), "含含英文混排 bullet（SQL）");
 ok(xml.includes("<w:numPr>"), "bullet 走列表项（numPr）结构完整");
 ok(!MARKERS.some((m) => xml.includes(m)), "docx 正文不含 🟢🟡🔴 标注符号");
+
+console.log("\n③ PDF（7B-3，无头浏览器 print-to-pdf + 抽字验中文字形）");
+const BROWSERS = [
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+];
+const browser = BROWSERS.find((p) => existsSync(p));
+if (!browser) {
+  ok(false, "未找到无头 Edge/Chrome —— 无法真出 PDF 验中文，停下报告");
+} else {
+  const htmlPath = join(dir, "sample.html");
+  const pdfPath = join(dir, "sample.pdf");
+  writeFileSync(htmlPath, buildPrintHtml(model), "utf8");
+  const fileUrl = "file:///" + htmlPath.replace(/\\/g, "/");
+  execSync(
+    `"${browser}" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${fileUrl}"`,
+    { stdio: "ignore" },
+  );
+  ok(existsSync(pdfPath), `无头浏览器生成 PDF（${browser.includes("Edge") ? "Edge" : "Chrome"}）`);
+  const parser = new PDFParse({ data: readFileSync(pdfPath) });
+  const { text } = await parser.getText();
+  await parser.destroy();
+  ok(text.includes("跨部门协作打通业务"), "PDF 抽出中文 bullet 字形（非方块/缺字）");
+  ok(text.includes("字节跳动") && text.includes("AI 产品经理"), "PDF 含 jdLabel 中文");
+  ok(text.includes("SQL"), "PDF 中英混排（SQL）正常");
+  ok(text.includes("海晟佛山金融租赁有限公司") && text.includes("AI 简历编译器"), "PDF 含各段标题（结构）");
+  ok(!MARKERS.some((m) => text.includes(m)), "PDF 正文不含 🟢🟡🔴 标注符号");
+}
 
 console.log(`\n${pass ? "✅ 7B 验收通过" : "❌ 验收失败"}`);
 process.exit(pass ? 0 : 1);

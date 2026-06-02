@@ -18,12 +18,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
-  Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check, FileType, Loader2,
+  Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check, FileType, Loader2, FileDown,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage } from "../lib/storage";
 import { computeMatchScore, isBulletAdopted } from "../lib/scoring";
 import { matchTier } from "../lib/matchTier";
-import { copyText, downloadDocx, modelToPlainText, segmentToPlainText, type ExportModel } from "../lib/export";
+import { copyText, downloadDocx, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, Master, Segment } from "../types";
 
 const SEG_TYPE_LABEL: Record<Segment["type"], string> = {
@@ -243,9 +243,17 @@ export default function CompletePage() {
           <div className="card" style={{ padding: 26, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
             <div style={sectionTitle}>导出投递版本</div>
             <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
-              导出的是上方"最终投递内容"的干净文本，与屏幕逐字一致。
+              导出的是上方"最终投递内容"的干净文本，与屏幕逐字一致。PDF 走系统打印，请在弹出的对话框中选择"另存为 PDF"。
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                className="gbtn"
+                disabled={exportModel.segments.length === 0}
+                onClick={() => printPdf(exportModel, version.name)}
+                style={{ ...ghostBtn, padding: "10px 16px", fontSize: 13.5, opacity: exportModel.segments.length === 0 ? 0.5 : 1 }}
+              >
+                <FileDown size={15} /> 导出 PDF
+              </button>
               <button
                 className="gbtn"
                 disabled={exportModel.segments.length === 0 || wordState === "busy"}

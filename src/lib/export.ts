@@ -99,3 +99,84 @@ export async function downloadDocx(model: ExportModel, filename: string): Promis
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// ---------- 7B-3：PDF（浏览器原生 print-to-pdf）----------
+// 路线 (b)：不嵌字体，走系统中文字体 → 天然中文、零体积。内容仍复用 ExportModel
+// （与屏幕 / Word 逐字同源）。buildPrintHtml 为纯函数（Node 可测：无头浏览器
+// --print-to-pdf 验中文），printPdf 用隐藏 iframe 触发系统打印（用户选"另存为 PDF"）。
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** 纯函数：ExportModel → 自包含打印 HTML（系统中文字体 + 打印 CSS）。
+ *  结构与"最终投递内容"逐字一致：H1=jdLabel，每段 H2=title，bullet 列表。 */
+export function buildPrintHtml(model: ExportModel, title?: string): string {
+  const docTitle = escapeHtml(title || model.jdLabel || "投递版本");
+  const segs = model.segments
+    .map((seg) => {
+      const lis = seg.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
+      return `<section><h2>${escapeHtml(seg.title)}</h2><ul>${lis}</ul></section>`;
+    })
+    .join("");
+  return `<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8"><title>${docTitle}</title>
+<style>
+  @page { margin: 18mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: #1e293b;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+      "Noto Sans CJK SC", "Heiti SC", "WenQuanYi Micro Hei", sans-serif;
+    font-size: 12pt; line-height: 1.65; }
+  h1 { font-size: 18pt; font-weight: 600; margin: 0 0 4pt; }
+  .sub { color: #64748b; font-size: 10pt; margin: 0 0 18pt; }
+  h2 { font-size: 13pt; font-weight: 600; margin: 16pt 0 6pt; padding-bottom: 3pt;
+    border-bottom: 1px solid #e2e8f0; }
+  ul { margin: 4pt 0 0; padding-left: 18pt; }
+  li { margin: 0 0 5pt; }
+  section { page-break-inside: avoid; }
+</style></head>
+<body>
+  <h1>${escapeHtml(model.jdLabel || "投递版本")}</h1>
+  <div class="sub">采纳后的最终投递内容</div>
+  ${segs}
+</body></html>`;
+}
+
+/** 浏览器：用隐藏 iframe 写入打印 HTML 并触发系统打印（用户在对话框选"另存为 PDF"）。 */
+export function printPdf(model: ExportModel, title?: string): void {
+  const html = buildPrintHtml(model, title);
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    iframe.remove();
+    throw new Error("无法创建打印视图");
+  }
+  doc.open();
+  doc.write(html);
+  doc.close();
+  const win = iframe.contentWindow!;
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    setTimeout(() => iframe.remove(), 300);
+  };
+  win.onafterprint = cleanup;
+  // 等 iframe 内容布局完成再打印
+  setTimeout(() => {
+    win.focus();
+    win.print();
+    cleanup();
+  }, 300);
+}
