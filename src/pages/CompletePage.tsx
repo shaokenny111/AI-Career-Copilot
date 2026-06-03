@@ -99,6 +99,7 @@ export default function CompletePage() {
       segments: includedSegments.map(({ seg, adoptedBullets }) => ({
         title: seg.title,
         typeLabel: SEG_TYPE_LABEL[seg.type],
+        ...(seg.subtitle ? { subtitle: seg.subtitle } : {}),
         timeRange: formatSegTime(seg),
         bullets: adoptedBullets.map((b) => b.userEditedText ?? b.rewrittenText),
       })),
@@ -265,7 +266,7 @@ export default function CompletePage() {
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 14.5, fontWeight: 600, color: "#1e293b" }}>{seg.title}</div>
                         <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2, marginBottom: 10 }}>
-                          {seg.typeLabel}{seg.timeRange ? ` · ${seg.timeRange}` : ""}
+                          {[seg.typeLabel, seg.subtitle, seg.timeRange].filter(Boolean).join(" · ")}
                         </div>
                       </div>
                       <button

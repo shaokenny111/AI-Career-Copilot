@@ -14,14 +14,25 @@
 
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 
-/** 一段的导出内容（标题 + 时间线 + 采纳后的 bullet 纯文本） */
+/** 一段的导出内容（标题 + 副标题/地点 + 时间线 + 采纳后的 bullet 纯文本）。
+ *  铁律：Segment 上所有"该出现在简历里"的字段都必须带回这里——
+ *  公司/职位在 title，地点/角色在 subtitle，起止时间在 timeRange（含 isCurrent→"至今"）。
+ *  content 不进（已被采纳后的改写 bullet 取代）；tags/id/时间戳是内部字段，不展示。 */
 export interface ExportSegment {
   title: string;
   typeLabel: string;
+  /** 副标题：地点 / 项目角色等（对应 Segment.subtitle）。无则空。 */
+  subtitle?: string;
   /** 起止时间显示串（如 "2023-07 ~ 至今"；无明确时间为空串）。
-   *  铁律：每段经历必须带回时间线——一份没时间线的简历是废的，绝不可丢。 */
+   *  一份没时间线的简历是废的，绝不可丢。 */
   timeRange: string;
   bullets: string[];
+}
+
+/** 段落元信息行：副标题/地点 · 时间线（各自存在才拼，避免出现孤立的 "·"）。
+ *  三档导出与屏幕共用，保证同源同序。 */
+export function segmentMetaLine(seg: ExportSegment): string {
+  return [seg.subtitle, seg.timeRange].filter(Boolean).join(" · ");
 }
 
 /** 整份投递版的导出模型（CompletePage 从 includedSegments 派生，单一数据源） */
@@ -31,9 +42,10 @@ export interface ExportModel {
   segments: ExportSegment[];
 }
 
-/** 单段 → 纯文本（标题 + 时间线 + 每条 bullet 一行，无项目符号花样、无标注符号） */
+/** 单段 → 纯文本（标题 + 副标题/地点·时间线 + 每条 bullet 一行，无标注符号） */
 export function segmentToPlainText(seg: ExportSegment): string {
-  const head = seg.timeRange ? [seg.title, seg.timeRange] : [seg.title];
+  const meta = segmentMetaLine(seg);
+  const head = meta ? [seg.title, meta] : [seg.title];
   return [...head, ...seg.bullets.map((b) => `- ${b}`)].join("\n");
 }
 
@@ -77,18 +89,19 @@ export function buildDocxDocument(model: ExportModel): Document {
     }),
   ];
   for (const seg of model.segments) {
+    const meta = segmentMetaLine(seg);
     children.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        spacing: { before: 240, after: seg.timeRange ? 20 : 60 },
+        spacing: { before: 240, after: meta ? 20 : 60 },
         children: [new TextRun({ text: seg.title })],
       }),
     );
-    if (seg.timeRange) {
+    if (meta) {
       children.push(
         new Paragraph({
           spacing: { after: 60 },
-          children: [new TextRun({ text: seg.timeRange, italics: true, color: "64748B", size: 18 })],
+          children: [new TextRun({ text: meta, italics: true, color: "64748B", size: 18 })],
         }),
       );
     }
@@ -131,8 +144,9 @@ export function buildPrintHtml(model: ExportModel, title?: string): string {
   const segs = model.segments
     .map((seg) => {
       const lis = seg.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
-      const time = seg.timeRange ? `<div class="time">${escapeHtml(seg.timeRange)}</div>` : "";
-      return `<section><h2>${escapeHtml(seg.title)}</h2>${time}<ul>${lis}</ul></section>`;
+      const meta = segmentMetaLine(seg);
+      const metaHtml = meta ? `<div class="time">${escapeHtml(meta)}</div>` : "";
+      return `<section><h2>${escapeHtml(seg.title)}</h2>${metaHtml}<ul>${lis}</ul></section>`;
     })
     .join("");
   return `<!DOCTYPE html>
