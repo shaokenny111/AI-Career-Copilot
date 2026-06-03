@@ -240,6 +240,7 @@ export async function matchRequirements(
     prompt: buildPrompt(input),
     responseJsonSchema: RESPONSE_JSON_SCHEMA as unknown as Record<string, unknown>,
     schema: rawSchema,
+    temperature: 0, // 满足/未满足判定直接决定评分分子与差距，必须可复现
   });
   return toContract(raw, input);
 }

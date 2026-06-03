@@ -117,7 +117,9 @@ export const DEFAULT_MODELS = [
   "gemini-2.5-flash",
 ];
 
-/** 文档 2.1：改写/分级类任务用低温，保证输出稳定不发散 */
+/** 文档 2.1：改写/分级类任务的默认低温（保证输出稳定不发散）。
+ *  喂评分/差距的任务（#2/#3/#8/#9）显式传 temperature:0 求可复现（见各任务文件）；
+ *  改写 #1 保留默认 0.3（需要一点创造性，且不直接喂评分）。 */
 const STRUCTURED_TEMPERATURE = 0.3;
 
 function isQuotaError(error: unknown): boolean {
@@ -191,11 +193,12 @@ export async function extractTextFromFile(fileData: string, mimeType: string) {
   }
 }
 
-/** 带配额降级的结构化 JSON 调用：附带 responseJsonSchema 与低温配置 */
+/** 带配额降级的结构化 JSON 调用：附带 responseJsonSchema 与温度配置 */
 async function callStructured(
   prompt: string,
   responseJsonSchema: Record<string, unknown>,
   modelNames: string[],
+  temperature: number,
 ): Promise<string> {
   let lastError: unknown;
   for (const model of modelNames) {
@@ -204,7 +207,7 @@ async function callStructured(
         model,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: STRUCTURED_TEMPERATURE,
+          temperature,
           responseMimeType: "application/json",
           responseJsonSchema,
         },
@@ -232,18 +235,21 @@ export async function runJsonTask<T>(params: {
   responseJsonSchema: Record<string, unknown>;
   schema: ZodType<T>;
   modelNames?: string[];
+  /** 采样温度。默认 0.3；喂评分/差距的任务（#2/#3/#8/#9）传 0 求可复现。 */
+  temperature?: number;
 }): Promise<T> {
   const {
     prompt,
     responseJsonSchema,
     schema,
     modelNames = DEFAULT_MODELS,
+    temperature = STRUCTURED_TEMPERATURE,
   } = params;
 
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const raw = await callStructured(prompt, responseJsonSchema, modelNames);
+      const raw = await callStructured(prompt, responseJsonSchema, modelNames, temperature);
       return schema.parse(JSON.parse(raw));
     } catch (error) {
       lastError = error;

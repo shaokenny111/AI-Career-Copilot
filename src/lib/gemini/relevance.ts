@@ -222,6 +222,7 @@ export async function evaluateRelevance(
     prompt: buildPrompt(input),
     responseJsonSchema: RESPONSE_JSON_SCHEMA as unknown as Record<string, unknown>,
     schema: rawSchema,
+    temperature: 0, // 相关性决定 finalIncluded（评分输入），必须可复现
   });
   return toContract(raw);
 }

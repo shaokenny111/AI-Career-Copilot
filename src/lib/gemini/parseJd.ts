@@ -170,6 +170,7 @@ export async function parseJd(input: ParseJdInput): Promise<ParseJdOutput> {
     prompt: buildPrompt(input),
     responseJsonSchema: RESPONSE_JSON_SCHEMA as unknown as Record<string, unknown>,
     schema: rawSchema,
+    temperature: 0, // 要求清单是评分分母/差距全集，必须可复现
   });
   return toContract(raw);
 }
