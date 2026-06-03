@@ -74,8 +74,6 @@ export default function WorkbenchPage() {
   const [activeId, setActiveId] = useState<string>("");
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  // 绿/黄"已审阅"手势（默认计入，此处仅作 UX 进度标记，不落盘）
-  const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
 
   // ===== 全局匹配度（确定性加权命中率；随采纳/确认/编辑实时重算）=====
   // 与完成页共用 src/lib/scoring.ts，保证两处分数一致。version 任一变更触发重算。
@@ -127,19 +125,25 @@ export default function WorkbenchPage() {
   const decisionOf = (segId: string): SegmentDecision | undefined =>
     version.segmentDecisions.find((d) => d.segmentId === segId);
 
-  // ---- 段落状态：current / todo / done ----
-  function statusOf(segId: string): "current" | "todo" | "done" {
-    if (segId === effectiveActive) return "current";
-    const d = decisionOf(segId);
-    if (!d || !d.finalIncluded) return "done"; // 隐藏段无需处理
+  // ---- 段落是否"实质审完"（与"当前查看的段"彻底解耦：不看 active）----
+  // done 只取决于数据：红色都已确认 + 绿/黄都已审阅（采纳全部或手动编辑→bullet.reviewed）。
+  // 隐藏段无需处理，视为已完成。
+  function isSegmentDone(d: SegmentDecision | undefined): boolean {
+    if (!d || !d.finalIncluded) return true;
     const pendingRed = d.bullets.some((b) => b.sourceLevel === "red" && !b.redConfirmation);
     const hasGy = d.bullets.some((b) => b.sourceLevel !== "red");
-    const gyAllReviewed = d.bullets.every((b, i) => b.sourceLevel === "red" || reviewed[bulletKey(segId, i)]);
-    if (pendingRed || (hasGy && !gyAllReviewed)) return "todo";
-    return "done";
+    const gyAllReviewed = d.bullets.every((b) => b.sourceLevel === "red" || b.reviewed);
+    return !(pendingRed || (hasGy && !gyAllReviewed));
   }
 
-  const doneCount = segments.filter((s) => statusOf(s.id) === "done").length;
+  // ---- 段落 UI 状态：current 仅是"你此刻停在这段"的纯高亮，不参与 done/allDone ----
+  function statusOf(segId: string): "current" | "todo" | "done" {
+    if (segId === effectiveActive) return "current";
+    return isSegmentDone(decisionOf(segId)) ? "done" : "todo";
+  }
+
+  // allDone 只看每段是否实质审完，与用户此刻停在哪段无关（含当前段也参与计数）
+  const doneCount = segments.filter((s) => isSegmentDone(decisionOf(s.id))).length;
   const total = segments.length;
   const allDone = total > 0 && doneCount === total;
   const idx = segments.findIndex((s) => s.id === effectiveActive);
@@ -173,16 +177,32 @@ export default function WorkbenchPage() {
     });
 
   const saveEdit = (segId: string, i: number, text: string) => {
-    patchBullet(segId, i, { userEditedText: text });
+    // 手动编辑是比"采纳全部绿黄"更强的已审动作 → 同时计入该 bullet 的 reviewed（落盘）
+    patchBullet(segId, i, { userEditedText: text, reviewed: true });
     setEditingKey(null);
   };
 
-  const acceptAllGreenYellow = (segId: string, d: SegmentDecision) => {
-    const map: Record<string, boolean> = {};
-    d.bullets.forEach((b, i) => {
-      if (b.sourceLevel !== "red") map[bulletKey(segId, i)] = true;
+  // 采纳全部绿/黄：把本段所有非红 bullet 标记 reviewed（落盘，刷新不丢）
+  const acceptAllGreenYellow = (segId: string) => {
+    setVersion((prev) => {
+      if (!prev) return prev;
+      const next: CompiledVersion = {
+        ...prev,
+        updatedAt: new Date().toISOString(),
+        segmentDecisions: prev.segmentDecisions.map((d) =>
+          d.segmentId !== segId
+            ? d
+            : {
+                ...d,
+                bullets: d.bullets.map((b) =>
+                  b.sourceLevel === "red" ? b : { ...b, reviewed: true },
+                ),
+              },
+        ),
+      };
+      updateCompiledVersion(next);
+      return next;
     });
-    setReviewed((p) => ({ ...p, ...map }));
   };
 
   // 命中 JD 词高亮（matchedJdPhrases → indigo 下划线）
@@ -343,11 +363,11 @@ export default function WorkbenchPage() {
                       const gy = activeDec.bullets.filter((b) => b.sourceLevel !== "red");
                       const hasRed = activeDec.bullets.some((b) => b.sourceLevel === "red");
                       if (gy.length === 0) return null;
-                      const allReviewed = activeDec.bullets.every((b, i) => b.sourceLevel === "red" || reviewed[bulletKey(activeSeg.id, i)]);
+                      const allReviewed = activeDec.bullets.every((b) => b.sourceLevel === "red" || b.reviewed);
                       return (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "10px 14px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10 }}>
                           <span style={{ fontSize: 12.5, color: "#94a3b8" }}>{hasRed ? "红色需你单独确认" : "全部为可信改写"}</span>
-                          <button className="gbtn" onClick={() => acceptAllGreenYellow(activeSeg.id, activeDec)} disabled={allReviewed}
+                          <button className="gbtn" onClick={() => acceptAllGreenYellow(activeSeg.id)} disabled={allReviewed}
                             style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12.5, opacity: allReviewed ? 0.5 : 1, cursor: allReviewed ? "default" : "pointer" }}>
                             <CheckCircle2 size={14} color="#059669" /> {allReviewed ? "绿色/黄色已采纳" : "采纳全部绿色 / 黄色"}
                           </button>
@@ -364,7 +384,7 @@ export default function WorkbenchPage() {
                           index={i}
                           expanded={!!expanded[bulletKey(activeSeg.id, i)]}
                           editing={editingKey === bulletKey(activeSeg.id, i)}
-                          reviewed={!!reviewed[bulletKey(activeSeg.id, i)]}
+                          reviewed={!!b.reviewed}
                           onToggleExpand={() => setExpanded((p) => ({ ...p, [bulletKey(activeSeg.id, i)]: !p[bulletKey(activeSeg.id, i)] }))}
                           onEdit={() => setEditingKey(bulletKey(activeSeg.id, i))}
                           onSaveEdit={(text) => saveEdit(activeSeg.id, i, text)}
