@@ -586,9 +586,15 @@ const BulletCard: FC<BulletCardProps> = ({
               </div>
             </div>
           ) : conf.action === "reject" ? (
-            <div style={{ fontSize: 12.5, color: "#94a3b8", display: "flex", alignItems: "center", gap: 7 }}><X size={15} /> 已排除 — 不写入简历</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span style={{ fontSize: 12.5, color: "#94a3b8", display: "inline-flex", alignItems: "center", gap: 7 }}><X size={15} /> 已排除 — 不写入子版</span>
+              <button className="gbtn" onClick={() => onConfirmRed("accept")} style={{ ...rejectBtn, padding: "5px 11px" }}>改为采纳</button>
+            </div>
           ) : (
-            <div style={{ fontSize: 12.5, color: "#047857", display: "flex", alignItems: "center", gap: 7, fontWeight: 500 }}><CheckCircle2 size={15} /> 已采纳 — 将写入子版（建议补充真实细节）</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, color: "#047857", display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 500 }}><CheckCircle2 size={15} /> 已采纳 — 将写入子版（建议补充真实细节）</span>
+              <button className="gbtn" onClick={() => onConfirmRed("reject")} style={{ ...rejectBtn, padding: "5px 11px" }}>改为排除</button>
+            </div>
           )}
         </div>
       )}
