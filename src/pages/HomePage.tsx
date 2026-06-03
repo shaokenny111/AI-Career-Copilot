@@ -63,7 +63,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <MasterCard master={master} onCompile={() => navigate("/upload")} onEdit={() => navigate("/master")} />
+          <MasterCard master={master} onCompile={() => navigate("/new-version")} onEdit={() => navigate("/master")} />
 
           <VersionsLibrary versions={versions} />
         </>

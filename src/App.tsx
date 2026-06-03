@@ -11,6 +11,7 @@ import HomePage from "./pages/HomePage";
 import MasterPage from "./pages/MasterPage";
 import VersionsPage from "./pages/VersionsPage";
 import UploadPage from "./pages/UploadPage";
+import NewVersionPage from "./pages/NewVersionPage";
 import CompilePage from "./pages/CompilePage";
 import GuidancePage from "./pages/GuidancePage";
 import WorkbenchPage from "./pages/WorkbenchPage";
@@ -24,6 +25,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="upload" element={<UploadPage />} />
+          <Route path="new-version" element={<NewVersionPage />} />
           <Route path="compile" element={<CompilePage />} />
           <Route path="workbench/:versionId" element={<WorkbenchPage />} />
           <Route path="complete/:versionId" element={<CompletePage />} />
