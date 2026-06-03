@@ -251,6 +251,10 @@ export interface Gap {
   severity: GapSeverity;
   /** 面试时的应对策略（#3 仅对已确定未满足的要求生成；可能为空串） */
   interviewStrategy: string;
+  /** 能力建设/简历改进建议（指向未来：靠改写补不了的真实差距该怎么提升）。
+   *  #3 仅对 hard/title 档生成（context 留空）；可选——旧数据无此字段时为 undefined，
+   *  完成页据此决定是否渲染第二块。绝不进 score（AI 文本，落盘在 gapAnalysis）。 */
+  capabilityAdvice?: string;
 }
 
 /** 表达性差距（可以靠改写补上） */
@@ -479,8 +483,12 @@ export interface GapStrategyInput {
 }
 
 export interface GapStrategyOutput {
-  /** 每条未满足要求对应一条面试应对话术 */
-  strategies: Array<{ requirementId: string; interviewStrategy: string }>;
+  /** 每条未满足要求对应：一条面试应对话术 + 一条能力建设建议（context 档建议为空串） */
+  strategies: Array<{
+    requirementId: string;
+    interviewStrategy: string;
+    capabilityAdvice: string;
+  }>;
 }
 
 // ---------- Prompt #5：应届生 JD 驱动提问 ----------

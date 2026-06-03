@@ -174,7 +174,7 @@ export async function runCompile(
   const score = computeMatchScore(segmentDecisions, requirements, requirementMatches);
   const unsatisfied = score.requirements.filter((r) => !r.hitNow);
 
-  const strategyByReq = new Map<string, string>();
+  const strategyByReq = new Map<string, { interviewStrategy: string; capabilityAdvice: string }>();
   if (unsatisfied.length > 0) {
     const { strategies } = await generateGapStrategies({
       unsatisfiedRequirements: unsatisfied.map((r) => ({
@@ -185,7 +185,11 @@ export async function runCompile(
       jobDescription: jd,
       segments,
     });
-    for (const s of strategies) strategyByReq.set(s.requirementId, s.interviewStrategy);
+    for (const s of strategies)
+      strategyByReq.set(s.requirementId, {
+        interviewStrategy: s.interviewStrategy,
+        capabilityAdvice: s.capabilityAdvice,
+      });
   }
 
   const hasHardGap = unsatisfied.some((r) => r.importance === "hard");
@@ -195,7 +199,8 @@ export async function runCompile(
       requirementId: r.id,
       jdRequirement: r.label,
       severity: IMPORTANCE_TO_SEVERITY[r.importance],
-      interviewStrategy: strategyByReq.get(r.id) ?? "",
+      interviewStrategy: strategyByReq.get(r.id)?.interviewStrategy ?? "",
+      capabilityAdvice: strategyByReq.get(r.id)?.capabilityAdvice ?? "",
     })),
     overallJudgment: judgmentFromScore(score.scoreNow, hasHardGap),
     overallScore: score.scoreNow, // 确定性回填（默认采纳口径），子版库/完成页即取此数
