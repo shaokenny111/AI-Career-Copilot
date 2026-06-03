@@ -18,7 +18,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
-  Globe, FileText, ChevronRight, Home, RotateCcw, Copy, Check, FileType, Loader2, FileDown,
+  Home, RotateCcw, Copy, Check, FileType, Loader2, FileDown,
   ShieldCheck, Sparkles, Send, X,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage, setApplicationMark } from "../lib/storage";
@@ -40,6 +40,15 @@ const SEG_TYPE_LABEL: Record<Segment["type"], string> = {
   work: "工作经历", internship: "实习经历", project: "项目经历", education: "教育背景",
   skill: "技能特长", certificate: "证书", award: "获奖", activity: "课外活动", other: "其他",
 };
+
+/** 段落起止时间 → 显示串（与工作台口径一致：在职显示"至今"）。无明确时间返回空串。
+ *  铁律：每段经历必须带回时间线，绝不可在完成页/导出丢失。 */
+function formatSegTime(seg: Segment): string {
+  const { start, end } = seg.timeRange;
+  const endLabel = seg.isCurrent ? "至今" : end;
+  if (start && endLabel) return `${start} ~ ${endLabel}`;
+  return start || endLabel || "";
+}
 
 export default function CompletePage() {
   const navigate = useNavigate();
@@ -90,6 +99,7 @@ export default function CompletePage() {
       segments: includedSegments.map(({ seg, adoptedBullets }) => ({
         title: seg.title,
         typeLabel: SEG_TYPE_LABEL[seg.type],
+        timeRange: formatSegTime(seg),
         bullets: adoptedBullets.map((b) => b.userEditedText ?? b.rewrittenText),
       })),
     }),
@@ -148,22 +158,15 @@ export default function CompletePage() {
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
-      {/* Header */}
-      <header style={{ height: 60, borderBottom: "1px solid #e2e8f0", background: "rgba(255,255,255,.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", position: "relative", zIndex: 2 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div title="返回首页" onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-            <div style={{ width: 30, height: 30, background: "linear-gradient(135deg,#6366f1,#4f46e5)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(79,70,229,.3)" }}><FileText size={16} color="#fff" /></div>
-            <span className="serif" style={{ fontWeight: 600, fontSize: 16 }}>AI Resume Compiler</span>
-          </div>
-          <ChevronRight size={14} color="#cbd5e1" />
-          <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>{jd.company} · {jd.position}</span>
-        </div>
-        <StepBar current={2} />
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button className="gbtn" style={ghostBtn}><Globe size={15} /> 中 / EN</button>
+      {/* 上下文条（全局 Layout 已提供品牌 header；此处只放面包屑 + 步骤 + 返回工作台，
+          避免与 Layout header 叠成两层）*/}
+      <div style={{ height: 44, borderBottom: "1px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>{jd.company} · {jd.position}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <StepBar current={2} />
           <button className="gbtn" onClick={() => navigate(`/workbench/${version.id}`)} style={ghostBtn}><ArrowLeft size={15} /> 返回工作台</button>
         </div>
-      </header>
+      </div>
 
       <div style={{ position: "relative" }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 380, background: "radial-gradient(55% 55% at 50% 0%, rgba(99,102,241,.10), transparent 70%)", pointerEvents: "none" }} />
@@ -261,7 +264,9 @@ export default function CompletePage() {
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 14.5, fontWeight: 600, color: "#1e293b" }}>{seg.title}</div>
-                        <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2, marginBottom: 10 }}>{seg.typeLabel}</div>
+                        <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 2, marginBottom: 10 }}>
+                          {seg.typeLabel}{seg.timeRange ? ` · ${seg.timeRange}` : ""}
+                        </div>
                       </div>
                       <button
                         className="gbtn"

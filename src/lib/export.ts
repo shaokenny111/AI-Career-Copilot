@@ -14,10 +14,13 @@
 
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 
-/** 一段的导出内容（标题 + 采纳后的 bullet 纯文本） */
+/** 一段的导出内容（标题 + 时间线 + 采纳后的 bullet 纯文本） */
 export interface ExportSegment {
   title: string;
   typeLabel: string;
+  /** 起止时间显示串（如 "2023-07 ~ 至今"；无明确时间为空串）。
+   *  铁律：每段经历必须带回时间线——一份没时间线的简历是废的，绝不可丢。 */
+  timeRange: string;
   bullets: string[];
 }
 
@@ -28,9 +31,10 @@ export interface ExportModel {
   segments: ExportSegment[];
 }
 
-/** 单段 → 纯文本（标题 + 每条 bullet 一行，无项目符号花样、无标注符号） */
+/** 单段 → 纯文本（标题 + 时间线 + 每条 bullet 一行，无项目符号花样、无标注符号） */
 export function segmentToPlainText(seg: ExportSegment): string {
-  return [seg.title, ...seg.bullets.map((b) => `- ${b}`)].join("\n");
+  const head = seg.timeRange ? [seg.title, seg.timeRange] : [seg.title];
+  return [...head, ...seg.bullets.map((b) => `- ${b}`)].join("\n");
 }
 
 /** 整份 → 纯文本（顶部标签 + 各段，段间空行） */
@@ -76,10 +80,18 @@ export function buildDocxDocument(model: ExportModel): Document {
     children.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        spacing: { before: 240, after: 60 },
+        spacing: { before: 240, after: seg.timeRange ? 20 : 60 },
         children: [new TextRun({ text: seg.title })],
       }),
     );
+    if (seg.timeRange) {
+      children.push(
+        new Paragraph({
+          spacing: { after: 60 },
+          children: [new TextRun({ text: seg.timeRange, italics: true, color: "64748B", size: 18 })],
+        }),
+      );
+    }
     for (const b of seg.bullets) {
       children.push(new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: b })] }));
     }
@@ -119,7 +131,8 @@ export function buildPrintHtml(model: ExportModel, title?: string): string {
   const segs = model.segments
     .map((seg) => {
       const lis = seg.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
-      return `<section><h2>${escapeHtml(seg.title)}</h2><ul>${lis}</ul></section>`;
+      const time = seg.timeRange ? `<div class="time">${escapeHtml(seg.timeRange)}</div>` : "";
+      return `<section><h2>${escapeHtml(seg.title)}</h2>${time}<ul>${lis}</ul></section>`;
     })
     .join("");
   return `<!DOCTYPE html>
@@ -133,8 +146,9 @@ export function buildPrintHtml(model: ExportModel, title?: string): string {
     font-size: 12pt; line-height: 1.65; }
   h1 { font-size: 18pt; font-weight: 600; margin: 0 0 4pt; }
   .sub { color: #64748b; font-size: 10pt; margin: 0 0 18pt; }
-  h2 { font-size: 13pt; font-weight: 600; margin: 16pt 0 6pt; padding-bottom: 3pt;
+  h2 { font-size: 13pt; font-weight: 600; margin: 16pt 0 2pt; padding-bottom: 3pt;
     border-bottom: 1px solid #e2e8f0; }
+  .time { color: #64748b; font-size: 10pt; margin: 3pt 0 4pt; }
   ul { margin: 4pt 0 0; padding-left: 18pt; }
   li { margin: 0 0 5pt; }
   section { page-break-inside: avoid; }
