@@ -126,14 +126,15 @@ export default function WorkbenchPage() {
     version.segmentDecisions.find((d) => d.segmentId === segId);
 
   // ---- 段落是否"实质审完"（与"当前查看的段"彻底解耦：不看 active）----
-  // done 只取决于数据：红色都已确认 + 绿/黄都已审阅（采纳全部或手动编辑→bullet.reviewed）。
-  // 隐藏段无需处理，视为已完成。
+  // done 只取决于数据：红色都已确认(redConfirmation) + 绿/黄都已逐条处理(gyDecision
+  // 为 accept 或 reject，含「采纳全部绿黄」/手动编辑置 accept)。拒绝也算"已处理"。
+  // 隐藏段无需处理，视为已完成；无 bullet 的段（every 对空集为真）也视为完成。
   function isSegmentDone(d: SegmentDecision | undefined): boolean {
     if (!d || !d.finalIncluded) return true;
     const pendingRed = d.bullets.some((b) => b.sourceLevel === "red" && !b.redConfirmation);
     const hasGy = d.bullets.some((b) => b.sourceLevel !== "red");
-    const gyAllReviewed = d.bullets.every((b) => b.sourceLevel === "red" || b.reviewed);
-    return !(pendingRed || (hasGy && !gyAllReviewed));
+    const gyAllProcessed = d.bullets.every((b) => b.sourceLevel === "red" || b.gyDecision != null);
+    return !(pendingRed || (hasGy && !gyAllProcessed));
   }
 
   // ---- 段落 UI 状态：current 仅是"你此刻停在这段"的纯高亮，不参与 done/allDone ----
@@ -177,12 +178,17 @@ export default function WorkbenchPage() {
     });
 
   const saveEdit = (segId: string, i: number, text: string) => {
-    // 手动编辑是比"采纳全部绿黄"更强的已审动作 → 同时计入该 bullet 的 reviewed（落盘）
-    patchBullet(segId, i, { userEditedText: text, reviewed: true });
+    // 手动编辑即视为采纳该条（落盘）：写入编辑文本 + gyDecision=accept
+    patchBullet(segId, i, { userEditedText: text, gyDecision: "accept" });
     setEditingKey(null);
   };
 
-  // 采纳全部绿/黄：把本段所有非红 bullet 标记 reviewed（落盘，刷新不丢）
+  // 绿/黄逐条接受/拒绝（对齐红色逐条模式；落盘，刷新不丢）
+  const decideGy = (segId: string, i: number, action: "accept" | "reject") =>
+    patchBullet(segId, i, { gyDecision: action });
+
+  // 采纳全部绿/黄：便捷批量——把本段尚未处理的非红 bullet 置 accept，
+  // 已被用户显式拒绝的保持 reject（不覆盖用户的取舍）。落盘。
   const acceptAllGreenYellow = (segId: string) => {
     setVersion((prev) => {
       if (!prev) return prev;
@@ -195,7 +201,9 @@ export default function WorkbenchPage() {
             : {
                 ...d,
                 bullets: d.bullets.map((b) =>
-                  b.sourceLevel === "red" ? b : { ...b, reviewed: true },
+                  b.sourceLevel === "red" || b.gyDecision === "reject"
+                    ? b
+                    : { ...b, gyDecision: "accept" },
                 ),
               },
         ),
@@ -363,13 +371,14 @@ export default function WorkbenchPage() {
                       const gy = activeDec.bullets.filter((b) => b.sourceLevel !== "red");
                       const hasRed = activeDec.bullets.some((b) => b.sourceLevel === "red");
                       if (gy.length === 0) return null;
-                      const allReviewed = activeDec.bullets.every((b) => b.sourceLevel === "red" || b.reviewed);
+                      // 全部非红已逐条处理（accept 或 reject）→ 批量按钮失效
+                      const allProcessed = activeDec.bullets.every((b) => b.sourceLevel === "red" || b.gyDecision != null);
                       return (
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "10px 14px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10 }}>
-                          <span style={{ fontSize: 12.5, color: "#94a3b8" }}>{hasRed ? "红色需你单独确认" : "全部为可信改写"}</span>
-                          <button className="gbtn" onClick={() => acceptAllGreenYellow(activeSeg.id)} disabled={allReviewed}
-                            style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12.5, opacity: allReviewed ? 0.5 : 1, cursor: allReviewed ? "default" : "pointer" }}>
-                            <CheckCircle2 size={14} color="#059669" /> {allReviewed ? "绿色/黄色已采纳" : "采纳全部绿色 / 黄色"}
+                          <span style={{ fontSize: 12.5, color: "#94a3b8" }}>{hasRed ? "红色需你单独确认；绿/黄可逐条取舍" : "可逐条取舍，或一键采纳"}</span>
+                          <button className="gbtn" onClick={() => acceptAllGreenYellow(activeSeg.id)} disabled={allProcessed}
+                            style={{ ...ghostBtn, padding: "6px 12px", fontSize: 12.5, opacity: allProcessed ? 0.5 : 1, cursor: allProcessed ? "default" : "pointer" }}>
+                            <CheckCircle2 size={14} color="#059669" /> {allProcessed ? "绿色/黄色已处理" : "采纳全部绿色 / 黄色"}
                           </button>
                         </div>
                       );
@@ -384,11 +393,11 @@ export default function WorkbenchPage() {
                           index={i}
                           expanded={!!expanded[bulletKey(activeSeg.id, i)]}
                           editing={editingKey === bulletKey(activeSeg.id, i)}
-                          reviewed={!!b.reviewed}
                           onToggleExpand={() => setExpanded((p) => ({ ...p, [bulletKey(activeSeg.id, i)]: !p[bulletKey(activeSeg.id, i)] }))}
                           onEdit={() => setEditingKey(bulletKey(activeSeg.id, i))}
                           onSaveEdit={(text) => saveEdit(activeSeg.id, i, text)}
                           onConfirmRed={(action) => confirmRed(activeSeg.id, i, action)}
+                          onDecideGy={(action) => decideGy(activeSeg.id, i, action)}
                           highlight={highlight}
                         />
                       ))}
@@ -494,22 +503,24 @@ interface BulletCardProps {
   index: number;
   expanded: boolean;
   editing: boolean;
-  reviewed: boolean;
   onToggleExpand: () => void;
   onEdit: () => void;
   onSaveEdit: (text: string) => void;
   onConfirmRed: (action: "accept" | "reject") => void;
+  onDecideGy: (action: "accept" | "reject") => void;
   highlight: (text: string, phrases: string[]) => ReactNode;
 }
 
 const BulletCard: FC<BulletCardProps> = ({
-  b, index, expanded, editing, reviewed, onToggleExpand, onEdit, onSaveEdit, onConfirmRed, highlight,
+  b, index, expanded, editing, onToggleExpand, onEdit, onSaveEdit, onConfirmRed, onDecideGy, highlight,
 }) => {
   const m = SOURCE[b.sourceLevel];
   const Icon = m.icon;
   const isRed = b.sourceLevel === "red";
   const text = b.userEditedText ?? b.rewrittenText;
   const conf = b.redConfirmation;
+  const gy = b.gyDecision; // 绿/黄逐条取舍状态
+  const gyRejected = !isRed && gy === "reject";
 
   return (
     <div className="bcard" style={{ border: `1px solid ${isRed ? m.border : "#e2e8f0"}`, borderLeft: `3px solid ${m.bar}`, borderRadius: 14, background: isRed ? m.soft : "#fff", overflow: "hidden", boxShadow: isRed ? "0 2px 8px rgba(225,29,72,.06)" : "0 1px 3px rgba(15,23,42,.05)" }}>
@@ -520,8 +531,11 @@ const BulletCard: FC<BulletCardProps> = ({
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: m.soft, border: `1px solid ${m.border}`, padding: "3px 9px", borderRadius: 99 }}>
               <Icon size={13} color={m.dot} /><span style={{ fontSize: 11.5, fontWeight: 600, color: m.text }}>{m.label}</span>
             </span>
-            {!isRed && reviewed && (
+            {!isRed && gy === "accept" && (
               <span style={{ fontSize: 11, color: "#059669", display: "inline-flex", alignItems: "center", gap: 3 }}><Check size={12} /> 已采纳</span>
+            )}
+            {!isRed && gy === "reject" && (
+              <span style={{ fontSize: 11, color: "#94a3b8", display: "inline-flex", alignItems: "center", gap: 3 }}><X size={12} /> 已排除</span>
             )}
           </div>
           {!isRed && (
@@ -537,7 +551,7 @@ const BulletCard: FC<BulletCardProps> = ({
             style={{ width: "100%", minHeight: 64, border: "1.5px solid #c7d2fe", borderRadius: 8, padding: 11, fontSize: 14, lineHeight: 1.6, color: "#1e293b", outline: "none", resize: "vertical", fontFamily: "inherit" }}
           />
         ) : (
-          <div style={{ fontSize: 14.5, lineHeight: 1.7, color: isRed ? "#9f1239" : "#1e293b" }}>{highlight(text, b.matchedJdPhrases)}</div>
+          <div style={{ fontSize: 14.5, lineHeight: 1.7, color: gyRejected ? "#94a3b8" : isRed ? "#9f1239" : "#1e293b", textDecoration: gyRejected ? "line-through" : "none" }}>{highlight(text, b.matchedJdPhrases)}</div>
         )}
 
         {/* 为什么这样改（折叠） */}
@@ -575,6 +589,31 @@ const BulletCard: FC<BulletCardProps> = ({
             <div style={{ fontSize: 12.5, color: "#94a3b8", display: "flex", alignItems: "center", gap: 7 }}><X size={15} /> 已排除 — 不写入简历</div>
           ) : (
             <div style={{ fontSize: 12.5, color: "#047857", display: "flex", alignItems: "center", gap: 7, fontWeight: 500 }}><CheckCircle2 size={15} /> 已采纳 — 将写入子版（建议补充真实细节）</div>
+          )}
+        </div>
+      )}
+
+      {/* 绿/黄逐条接受/拒绝（对齐红色逐条模式：默认可采纳，可单独说不）*/}
+      {!isRed && (
+        <div style={{ background: "#fff", borderTop: "1px solid #e2e8f0", padding: "11px 18px" }}>
+          {!gy ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, color: "#94a3b8" }}>采纳这条改写，或单独排除</span>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button className="pbtn" onClick={() => onDecideGy("accept")} style={acceptBtn}><Check size={14} /> 采纳</button>
+                <button className="gbtn" onClick={() => onDecideGy("reject")} style={rejectBtn}><X size={14} /> 不要</button>
+              </div>
+            </div>
+          ) : gy === "reject" ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span style={{ fontSize: 12.5, color: "#94a3b8", display: "inline-flex", alignItems: "center", gap: 7 }}><X size={15} /> 已排除 — 不写入子版</span>
+              <button className="gbtn" onClick={() => onDecideGy("accept")} style={{ ...rejectBtn, padding: "5px 11px" }}>改为采纳</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span style={{ fontSize: 12.5, color: "#047857", display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 500 }}><CheckCircle2 size={15} /> 已采纳 — 将写入子版</span>
+              <button className="gbtn" onClick={() => onDecideGy("reject")} style={{ ...rejectBtn, padding: "5px 11px" }}>改为排除</button>
+            </div>
           )}
         </div>
       )}
@@ -679,6 +718,7 @@ function StepBar({ current }: { current: number }) {
 const primaryBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", border: "none", borderRadius: 9, padding: "9px 17px", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(79,70,229,.25)" };
 const ghostBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 9, padding: "8px 13px", fontSize: 13, color: "#475569", cursor: "pointer" };
 const redBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#f43f5e,#e11d48)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(225,29,72,.25)" };
+const acceptBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(5,150,105,.25)" };
 const rejectBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "#fff", color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 500, cursor: "pointer" };
 const navTitle: CSSProperties = { fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em", padding: "0 12px 14px" };
 const sideTitle: CSSProperties = { fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: ".06em" };

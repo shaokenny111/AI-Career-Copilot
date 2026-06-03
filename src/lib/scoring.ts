@@ -25,7 +25,7 @@
 //  bullet 覆盖，已被自然计入；substantiveGaps 仅由 gap.ts 保留作面试策略展示。）
 //
 // ── 命中规则（诚实原则）────────────────────────────────────────────────────
-//   · green / yellow bullet：默认采纳，计入。
+//   · green / yellow bullet：默认采纳，计入；用户可逐条拒绝（gyDecision="reject"）→ 不计入。
 //   · red bullet：仅当用户确认"我有"（redConfirmation.action = accept /
 //     modify_and_accept）才计入；拒绝 / 未确认 → 不计入 → 分数不涨（正确行为）。
 //   · 一条要求"命中" = 至少一条【已采纳】bullet 在 #9 映射里覆盖它。
@@ -94,7 +94,8 @@ export function isBulletAdopted(b: RewrittenBullet): boolean {
     const a = b.redConfirmation?.action;
     return a === "accept" || a === "modify_and_accept";
   }
-  return true;
+  // 绿/黄默认采纳（未处理也计入，保持既有分数口径）；仅当用户【显式拒绝】才排除。
+  return b.gyDecision !== "reject";
 }
 
 /** bullet 运行期状态：是否已采纳 + 是否 green（改写前事实） */

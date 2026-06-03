@@ -178,10 +178,13 @@ export interface RewrittenBullet {
   /** AI 编辑后用户又编辑过的版本——保留 AI 原版用于"还原"和"采纳率统计" */
   userEditedText?: string;
 
-  /** 绿/黄 bullet 的"已审阅"手势（落盘）：用户点「采纳全部绿黄」或手动编辑该条即置 true。
-   *  仅作工作台"该段是否审完"的门控依据，不参与评分（scoring 只看 sourceLevel +
-   *  redConfirmation）。red bullet 用 redConfirmation 表达确认，不用此字段。 */
-  reviewed?: boolean;
+  /** 绿/黄 bullet 的逐条接受/拒绝（落盘），对齐红色 bullet 的逐条确认模式：
+   *  · "accept"：采纳并计入（写入子版 + 进评分分子）。手动编辑该条或「采纳全部绿黄」也置此。
+   *  · "reject"：用户单独说不 —— 不计入（同红色拒绝：不进 exportModel、不进分子）。
+   *  · undefined：用户尚未逐条处理（工作台据此判该段为 todo）。
+   *  绿/黄默认可采纳：仅 "reject" 才被排除（见 scoring.isBulletAdopted）。
+   *  red bullet 不用此字段，用 redConfirmation 表达确认。 */
+  gyDecision?: "accept" | "reject";
 
   /** 信息来源等级（决定前端的颜色标注和确认逻辑） */
   sourceLevel: SourceLevel;
