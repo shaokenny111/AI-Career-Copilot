@@ -46,9 +46,11 @@ export default function HomePage() {
         .pbtn { transition: all .15s; } .pbtn:hover { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
         .vcard { transition: transform .2s, box-shadow .2s, border-color .2s; cursor:pointer; }
         .vcard:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(15,23,42,.1) !important; border-color:#c7d2fe !important; }
-        .vcard .acts { opacity:0; transition: opacity .15s; }
+        .vcard .acts { opacity:.55; transition: opacity .15s; }
         .vcard:hover .acts { opacity:1; }
-        .ibtn { transition: background .15s; } .ibtn:hover { background:#eef2ff; }
+        .ibtn { transition: background .15s, border-color .15s; }
+        .ibtn:hover { background:#eef2ff; border-color:#c7d2fe; }
+        .ibtn:active { background:#e0e7ff; }
         .mtag { transition: all .15s; }
       `}</style>
 
@@ -259,9 +261,9 @@ const VersionCard: FC<{ v: CompiledVersion; isLatest: boolean }> = ({ v, isLates
         </div>
       </div>
       <div className="acts" style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-        <button className="ibtn" style={iconBtn} title="查看 / 微调" onClick={() => navigate(`/workbench/${v.id}`)}><Eye size={16} color="#64748b" /></button>
-        <button className="ibtn" style={iconBtn} title="重新导出"><FileDown size={16} color="#64748b" /></button>
-        <button className="ibtn" style={iconBtn} title="更多"><MoreHorizontal size={16} color="#64748b" /></button>
+        <button className="ibtn" style={iconBtn} title="查看 / 微调" aria-label="查看 / 微调" onClick={() => navigate(`/workbench/${v.id}`)}><Eye size={16} color="#64748b" /></button>
+        <button className="ibtn" style={iconBtn} title="导出 / 完成页" aria-label="导出 / 完成页" onClick={() => navigate(`/complete/${v.id}`)}><FileDown size={16} color="#64748b" /></button>
+        <button className="ibtn" style={iconBtn} title="更多（即将支持）" aria-label="更多"><MoreHorizontal size={16} color="#64748b" /></button>
       </div>
       <ArrowRight size={16} color="#cbd5e1" style={{ flexShrink: 0 }} />
     </div>
