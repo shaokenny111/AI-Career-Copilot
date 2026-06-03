@@ -309,8 +309,8 @@ function buildPrompt(input: RewriteInput): string {
     "原段落：",
     formatSegment(input.segment),
     "",
-    "JD 信息：",
-    formatJobDescription(input.jobDescription),
+    "JD 信息（公司名与改写无关，已略去以保证评分可复现）：",
+    formatJobDescription({ ...input.jobDescription, company: "" }),
     "",
     "请严格按 JSON Schema 输出改写后的 bullets。",
   ].join("\n");

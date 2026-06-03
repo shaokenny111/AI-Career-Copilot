@@ -193,8 +193,8 @@ function buildPrompt(input: RelevanceInput): string {
     "母版所有段落：",
     formatSegments(input.segments),
     "",
-    "JD 信息：",
-    formatJobDescription(input.jobDescription),
+    "JD 信息（公司名与相关性无关，已略去以保证可复现）：",
+    formatJobDescription({ ...input.jobDescription, company: "" }),
     "",
     "请逐段评估相关性，严格按 JSON Schema 输出 evaluations。",
   ].join("\n");

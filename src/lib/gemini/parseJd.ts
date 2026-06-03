@@ -139,13 +139,17 @@ const rawSchema = z.object({
 // ---------- Prompt 拼装 ----------
 
 function buildPrompt(input: ParseJdInput): string {
+  // 可复现铁律：要求清单只取决于【职位 + JD 正文】，与公司名无关。把公司名置空，
+  // 确保"麦肯锡 / McKinsey"这类纯公司名差异不会改变要求清单（=评分分母），从根上
+  // 消除"同一份 JD 仅公司名中英不同 → 分数漂"的不可复现。
+  const jdForExtract = { ...input.jobDescription, company: "" };
   return [
     SYSTEM_PROMPT,
     "【参考示例】",
     FEW_SHOT_EXAMPLES,
     "【本次任务输入】",
-    "JD 信息（只有这份 JD，没有简历）：",
-    formatJobDescription(input.jobDescription),
+    "JD 信息（只有这份 JD，没有简历；公司名与要求无关，已略去）：",
+    formatJobDescription(jdForExtract),
     "",
     "请提取全部要求并逐条标注权重档，严格按 JSON Schema 输出 requirements。",
   ].join("\n");
