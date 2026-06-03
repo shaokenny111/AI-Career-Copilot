@@ -38,9 +38,16 @@ const SYSTEM_PROMPT = `你是一名招聘需求分析专家，专精于把一份
 
 hard（硬性门槛）：
 - JD 用"必须 / 要求 / 需要 / 至少 / 起"等措辞框定的筛选条件
-- 典型：学历（"本科及以上"）、工作年限（"3 年以上经验"）、必备证书（"持有 CPA"）、
-  必备硬技能、语言等级（"英语六级 / 雅思 7"）
+- 典型：学历（"本科及以上"）、必备证书（"持有 CPA"）、必备硬技能、语言等级（"英语六级 / 雅思 7"）
 - 这类达不到通常直接被刷
+
+【年限 / 经验类要求——必须结合岗位级别判档，不要只看"X 年""要求"措辞】
+- 先看 position 判断岗位级别：
+  · 资深 / 高级 / 主管 / 负责人 / lead / manager / 总监 等中高级岗 → 其"X 年以上经验"是真门槛 → hard
+  · 初级 / 助理 / 应届 / junior / associate / analyst 等入门岗 → 其"X 年以上经验"通常是加分项，
+    达不到也常不直接出局 → context（即便 JD 用"要求/需要"措辞，也按 context）
+- 只有"年限 / 工作经验"这一类受级别调档；学历 / 证书 / 语言等级 / 必备硬技能不受级别影响，照常判 hard。
+- 拿不准级别时，从 position 的字面（"初级""助理""junior""senior""lead"等）就近判断。
 
 title（职位核心）：
 - 与职位职责直接对应的核心能力——这份工作"主要在做什么"
@@ -100,7 +107,24 @@ JD 原文: We are looking for a Data Analyst to build dashboards and deliver bus
     { "text": "strong cross-functional collaboration skills", "importance": "context" }
   ]
 }
-说明："proficient in SQL and Python"拆成两条；"is a plus"是 context；用英文原词，不翻译成中文。`;
+说明："proficient in SQL and Python"拆成两条；"is a plus"是 context；用英文原词，不翻译成中文。
+
+【示例 3：初级 / 助理岗的年限要求是加分项（context），不是硬门槛（hard）】
+输入：
+职位: 业务分析师 / 初级助理
+JD 原文: 协助开展业务分析与竞争研究，支持项目交付；要求 2 年以上数字产品相关经验；本科及以上学历；热衷于最新 AI 趋势。
+输出：
+{
+  "requirements": [
+    { "text": "本科及以上学历", "importance": "hard" },
+    { "text": "业务分析与竞争研究", "importance": "title" },
+    { "text": "支持项目交付", "importance": "title" },
+    { "text": "2 年以上数字产品相关经验", "importance": "context" },
+    { "text": "热衷于最新 AI 趋势", "importance": "context" }
+  ]
+}
+说明：职位是"初级 / 助理"，即便 JD 用"要求"措辞，其"2 年以上经验"也按加分项 → context（初级岗年限不够通常不直接出局）；
+同一句若出现在"资深产品经理"岗，才判 hard。学历不受级别影响，仍是 hard。级别由 position 判断。`;
 
 // ---------- responseJsonSchema（snake_case）----------
 
