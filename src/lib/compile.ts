@@ -26,6 +26,7 @@ import type {
   JobDescription,
   Master,
   RewrittenBullet,
+  Segment,
   SegmentDecision,
 } from "../types";
 import {
@@ -41,6 +42,36 @@ function genId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random()
     .toString(36)
     .slice(2, 8)}`;
+}
+
+/** 事实清单类段落：教育/技能/证书。这类是"课程/证书/语言成绩/分数"的事实清单，
+ *  绝不该走 #1 那套"为 JD 改写成能力句"的逻辑 —— 改走零 AI 确定性直通。 */
+const FACT_LIST_TYPES: ReadonlySet<Segment["type"]> = new Set([
+  "education",
+  "skill",
+  "certificate",
+]);
+
+/**
+ * 零 AI 确定性直通：把事实清单段的原文按行拆成 green bullet，
+ * 课程名/证书/语言成绩/分数【原样保留】，绝不改写成"具备…能力"的能力描述句。
+ * 契约不变：仍输出带稳定 id 的 RewrittenBullet（全 green），#9 映射 / scoring /
+ * 差距逻辑都不用改（#9 仍按 id+文本把 JD 要求映射到这些事实 bullet）。
+ */
+function passthroughBullets(seg: Segment): RewrittenBullet[] {
+  return seg.content
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((text) => ({
+      id: genId("blt"),
+      rewrittenText: text,
+      originalText: text,
+      sourceLevel: "green" as const,
+      whatChanged: "原样保留",
+      whyChanged: "教育/技能/证书为事实清单，仅展示不改写成能力句",
+      matchedJdPhrases: [],
+    }));
 }
 
 /** 子版默认名："公司-职位-YYYYMMDD" */
@@ -73,8 +104,10 @@ export async function runCompile(
     Promise.all(
       segments.map(async (seg) => ({
         segmentId: seg.id,
-        bullets: (await rewriteSegment({ segment: seg, jobDescription: jd }))
-          .bullets,
+        // 工作/实习/项目（及其它经历类）→ #1 改写；教育/技能/证书 → 零 AI 事实直通
+        bullets: FACT_LIST_TYPES.has(seg.type)
+          ? passthroughBullets(seg)
+          : (await rewriteSegment({ segment: seg, jobDescription: jd })).bullets,
       })),
     ),
     parseJd({ jobDescription: jd }), // 铁律：只传 JD，不传 segments
