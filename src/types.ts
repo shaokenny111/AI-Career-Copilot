@@ -240,13 +240,16 @@ export interface SegmentDecision {
   transferableValue?: string;
 }
 
-/** AI 检测出的差距（Prompt #3 输出） */
+/** 一条差距 = 一条"已确定未满足"的 JD 要求（与评分命中互斥，同一身份只一份判断）。
+ *  severity 由该要求 importance 直接映射（不经 AI）；interviewStrategy 由 #3 生成。 */
 export interface Gap {
-  /** JD 中的具体要求 */
+  /** 对应 JD 要求 id（与 #8/#9/scoring 同一身份，用于和评分命中互斥派生） */
+  requirementId: string;
+  /** JD 中的具体要求（= JdRequirement.text） */
   jdRequirement: string;
-  /** 严重程度 */
+  /** 严重程度（hard→hard_filter / title→important / context→minor，确定性映射） */
   severity: GapSeverity;
-  /** 面试时的应对策略 */
+  /** 面试时的应对策略（#3 仅对已确定未满足的要求生成；可能为空串） */
   interviewStrategy: string;
 }
 
@@ -259,18 +262,22 @@ export interface ExpressionGap {
   whereToAdd: string;
 }
 
-/** 完整的差距分析结果 */
+/** 完整的差距分析结果。
+ *  统一后：差距不再由 AI 独立判定，而是从 (#8 importance + #9 满足判定) 确定性派生。 */
 export interface GapAnalysis {
-  /** 表达性差距（用户实际有，但简历没体现） */
+  /** @deprecated 已废弃，恒为 []。统一后不再区分表达性/实质性差距——
+   *  未满足要求即差距，由评分同源派生。保留字段仅为兼容旧数据/fixture。 */
   expressionGaps: ExpressionGap[];
 
-  /** 实质性差距（用户真的没有，改写补不上） */
+  /** 差距列表 = 编译期"已确定未满足"的 JD 要求（severity 取 importance，
+   *  interviewStrategy 由 #3 生成）。完成页据此 + 运行期评分实时派生展示，
+   *  保证"同一要求绝不同时出现在命中与差距里"。 */
   substantiveGaps: Gap[];
 
-  /** 整体投递建议 */
+  /** 整体投递建议（由分数 + 是否有 hard 差距确定性得出，不经 AI） */
   overallJudgment: OverallJudgment;
 
-  /** 整体评分 0-100（综合各维度） */
+  /** 整体评分 0-100（确定性加权命中率；编译期按默认采纳回填，工作台随采纳更新） */
   overallScore: number;
 }
 
@@ -453,16 +460,28 @@ export interface RewriteOutput {
   bullets: RewrittenBullet[];
 }
 
-// ---------- Prompt #3：差距分析 ----------
+// ---------- Prompt #3：面试应对策略（仅对已确定未满足的 JD 要求）----------
+// #3 退化：不再自己判"谁是差距 / 多严重"。差距 = 未满足要求（由 #8 importance + #9
+// 满足判定确定），严重度 = importance 直接映射。#3 只为这些要求各写一条面试应对话术，
+// 保留诚实锚点的"怎么办"。
 
-export interface GapAnalysisInput {
-  /** 母版所有段落（含时间字段，否则 AI 会误判工作年限） */
-  segments: Segment[];
+export interface GapStrategyInput {
+  /** 已确定未满足的 JD 要求（id + 文本 + 重要度） */
+  unsatisfiedRequirements: Array<{
+    id: string;
+    text: string;
+    importance: RequirementImportance;
+  }>;
   /** 目标 JD */
   jobDescription: JobDescription;
+  /** 母版所有段落（给 AI 上下文，便于写出可迁移、诚实的应对话术） */
+  segments: Segment[];
 }
 
-export type GapAnalysisOutput = GapAnalysis;
+export interface GapStrategyOutput {
+  /** 每条未满足要求对应一条面试应对话术 */
+  strategies: Array<{ requirementId: string; interviewStrategy: string }>;
+}
 
 // ---------- Prompt #5：应届生 JD 驱动提问 ----------
 

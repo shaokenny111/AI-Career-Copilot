@@ -21,8 +21,9 @@
 // ── 诚实天花板 ──────────────────────────────────────────────────────────────
 // 分母是 #8 从 JD 提取的【全部要求】，包含简历压根没覆盖的硬门槛（#9 映射为空）。
 // 这些要求永远进分母、永远不命中，把分数诚实地压在天花板以下——这正是产品价值。
-// （substantiveGaps 不再进分母：实质性差距对应的 JD 要求本就在要求全集里、且无
-//  bullet 覆盖，已被自然计入；substantiveGaps 仅由 gap.ts 保留作面试策略展示。）
+// （差距与命中是同一份判定的两面：scored.requirements 里 hitNow=false 即差距，
+//  severity 取该要求 importance（IMPORTANCE_TO_SEVERITY）；#3 只为这些未满足要求补
+//  面试话术。完成页差距列表据此实时派生，详见 compile.ts 第三相。）
 //
 // ── 命中规则（诚实原则）────────────────────────────────────────────────────
 //   · green / yellow bullet：默认采纳，计入；用户可逐条拒绝（gyDecision="reject"）→ 不计入。
@@ -38,6 +39,7 @@
 // ============================================================================
 
 import type {
+  GapSeverity,
   JdRequirement,
   RequirementImportance,
   RequirementMatch,
@@ -50,6 +52,15 @@ export const TIER_WEIGHT: Record<RequirementImportance, number> = {
   hard: 2,
   title: 1.5,
   context: 1,
+};
+
+/** JD 要求重要度 → 差距严重度（确定性映射，绝不经 AI）。
+ *  差距的严重度 = 该要求在 #8 的权重档，与评分同源，杜绝"命中又差距/严重度漂移"。
+ *  hard→hard_filter（硬性门槛）/ title→important（重要差距）/ context→minor（轻微差距）。 */
+export const IMPORTANCE_TO_SEVERITY: Record<RequirementImportance, GapSeverity> = {
+  hard: "hard_filter",
+  title: "important",
+  context: "minor",
 };
 
 /** 一条参与评分的 JD 要求（带命中明细，用于右栏 / 完成页追溯） */

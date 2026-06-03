@@ -17,7 +17,7 @@ export {
 export { parseResumeText } from "./parse"; // #7 母版解析（纯文本→结构化）
 export { rewriteSegment } from "./rewrite"; // #1 改写标注
 export { evaluateRelevance } from "./relevance"; // #2 相关性评估
-export { analyzeGap } from "./gap"; // #3 差距分析
+export { generateGapStrategies } from "./gap"; // #3 面试应对策略（退化版）
 export { classifyResumeType } from "./classify"; // #4 类型识别
 export { generateGuidanceQuestions } from "./questions"; // #5 应届生提问
 export { convertToStar } from "./star"; // #6 STAR 转换

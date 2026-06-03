@@ -22,20 +22,23 @@
 
 import type {
   CompiledVersion,
+  GapAnalysis,
   JdRequirement,
   JobDescription,
   Master,
+  OverallJudgment,
   RewrittenBullet,
   Segment,
   SegmentDecision,
 } from "../types";
 import {
-  analyzeGap,
   evaluateRelevance,
+  generateGapStrategies,
   matchRequirements,
   parseJd,
   rewriteSegment,
 } from "./gemini";
+import { computeMatchScore, IMPORTANCE_TO_SEVERITY } from "./scoring";
 
 /** 生成稳定随机 id（与 resumeIntake 同风格，无第三方依赖） */
 function genId(prefix: string): string {
@@ -97,10 +100,10 @@ export async function runCompile(
 ): Promise<CompiledVersion> {
   const segments = master.segments;
 
-  // ── 第一相：相关性 / 差距 / 改写 / JD 要求提取（互不依赖，并发）──
-  const [relevanceOut, gapAnalysis, rewrites, parsedJd] = await Promise.all([
+  // ── 第一相：相关性 / 改写 / JD 要求提取（互不依赖，并发）──
+  // 注意：#3 已退化为"只给未满足要求写应对话术"，依赖 #9 的满足判定，故移到第三相。
+  const [relevanceOut, rewrites, parsedJd] = await Promise.all([
     evaluateRelevance({ segments, jobDescription: jd }),
-    analyzeGap({ segments, jobDescription: jd }),
     Promise.all(
       segments.map(async (seg) => ({
         segmentId: seg.id,
@@ -164,6 +167,40 @@ export async function runCompile(
     bullets: allBullets,
   });
 
+  // ── 第三相：确定性派生差距 + #3 仅为未满足要求生成应对话术 ──
+  // 单一事实源：computeMatchScore 用默认采纳（绿/黄计入、红未确认不计入）算出每条要求
+  // 满足与否。未满足 = 差距，severity 取该要求 importance。差距与命中互斥，绝无"命中
+  // 又差距"。#3 只对未满足要求补面试话术。
+  const score = computeMatchScore(segmentDecisions, requirements, requirementMatches);
+  const unsatisfied = score.requirements.filter((r) => !r.hitNow);
+
+  const strategyByReq = new Map<string, string>();
+  if (unsatisfied.length > 0) {
+    const { strategies } = await generateGapStrategies({
+      unsatisfiedRequirements: unsatisfied.map((r) => ({
+        id: r.id,
+        text: r.label,
+        importance: r.importance,
+      })),
+      jobDescription: jd,
+      segments,
+    });
+    for (const s of strategies) strategyByReq.set(s.requirementId, s.interviewStrategy);
+  }
+
+  const hasHardGap = unsatisfied.some((r) => r.importance === "hard");
+  const gapAnalysis: GapAnalysis = {
+    expressionGaps: [], // 已废弃：统一后不区分表达性/实质性差距
+    substantiveGaps: unsatisfied.map((r) => ({
+      requirementId: r.id,
+      jdRequirement: r.label,
+      severity: IMPORTANCE_TO_SEVERITY[r.importance],
+      interviewStrategy: strategyByReq.get(r.id) ?? "",
+    })),
+    overallJudgment: judgmentFromScore(score.scoreNow, hasHardGap),
+    overallScore: score.scoreNow, // 确定性回填（默认采纳口径），子版库/完成页即取此数
+  };
+
   const now = new Date();
   const nowIso = now.toISOString();
 
@@ -175,10 +212,19 @@ export async function runCompile(
     jobDescription: { ...jd, requirements },
     segmentDecisions,
     requirementMatches,
-    gapAnalysis, // overallScore 已是 0 占位（Phase 6 回填）
+    gapAnalysis,
     applicationMark: { applied: false },
     language: master.language,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
+}
+
+/** 整体投递建议：确定性从分数 + 是否有 hard 差距得出（不经 AI）。
+ *  有 hard 门槛未满足时压低判断；否则按分数分档。 */
+function judgmentFromScore(scoreNow: number, hasHardGap: boolean): OverallJudgment {
+  if (hasHardGap) return scoreNow >= 75 ? "improve_first" : "not_recommended";
+  if (scoreNow >= 70) return "recommended";
+  if (scoreNow >= 50) return "improve_first";
+  return "not_recommended";
 }

@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { getCompiledVersion, loadStorage, setApplicationMark } from "../lib/storage";
 import { useAppStorage } from "../lib/useAppStorage";
-import { computeMatchScore, isBulletAdopted } from "../lib/scoring";
+import { computeMatchScore, isBulletAdopted, IMPORTANCE_TO_SEVERITY } from "../lib/scoring";
 import { matchTier } from "../lib/matchTier";
 import { formatRelativeDate } from "../lib/datetime";
 import { copyText, downloadDocx, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
@@ -89,6 +89,27 @@ export default function CompletePage() {
       })
       .filter((x): x is { seg: Segment; total: number; adoptedBullets: typeof version.segmentDecisions[number]["bullets"] } => !!x);
   }, [version, master]);
+
+  // 差距列表：与评分【同源派生】—— score.requirements 里 hitNow=false 即差距，
+  // severity 取该要求 importance，话术从编译期 #3 结果按 requirementId 查。
+  // 因此"同一条要求绝不同时出现在命中与差距里"，高分简历差距自然短。
+  const SEVERITY_ORDER: Record<GapSeverity, number> = { hard_filter: 0, important: 1, minor: 2 };
+  const gaps = useMemo(() => {
+    if (!score) return [];
+    const strategyById = new Map(
+      (version?.gapAnalysis.substantiveGaps ?? []).map((g) => [g.requirementId, g.interviewStrategy]),
+    );
+    return score.requirements
+      .filter((r) => !r.hitNow)
+      .map((r) => ({
+        id: r.id,
+        jdRequirement: r.label,
+        severity: IMPORTANCE_TO_SEVERITY[r.importance],
+        interviewStrategy: strategyById.get(r.id) ?? "",
+      }))
+      .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score, version]);
 
   // 导出单一数据源：从已渲染的 includedSegments 派生，导出与屏幕逐字同源
   const exportModel: ExportModel = useMemo(
@@ -218,31 +239,34 @@ export default function CompletePage() {
             </div>
           )}
 
-          {/* 模块「诚实差距」：实质差距 + 面试应对（只上屏、不入导出，差异化锚点） */}
-          {version.gapAnalysis.substantiveGaps.length > 0 && (
+          {/* 模块「诚实差距」：未满足的 JD 要求（与评分同源派生）+ 面试应对。
+              只上屏、不入导出，差异化锚点。差距 = score 里未命中的要求，故与命中互斥。 */}
+          {gaps.length > 0 && (
             <div className="card" style={{ padding: 26, marginBottom: 24, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16 }}>
               <div style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: 8, color: "#475569" }}>
                 <ShieldCheck size={16} color="#4f46e5" /> 诚实差距 · 这些靠面试应对，不靠改写假装
               </div>
               <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
-                我们不会用改写让你看起来像另一个人。以下是简历改写补不上的真实差距，附面试应对建议——只在此处供你准备，不会写进导出的简历。
+                以下是当前简历尚未满足的 JD 要求（与上方匹配度同一套判定，命中的不会出现在这里）。附面试应对建议——只在此处供你准备，不会写进导出的简历。
               </div>
-              {version.gapAnalysis.substantiveGaps.map((g, i) => {
+              {gaps.map((g, i) => {
                 const sv = GAP_SEVERITY[g.severity];
-                const last = i === version.gapAnalysis.substantiveGaps.length - 1;
+                const last = i === gaps.length - 1;
                 return (
-                  <div key={i} style={{ padding: "16px 18px", borderRadius: 12, background: "#fafbfc", border: "1px solid #eef0f5", borderLeft: `3px solid ${sv.bar}`, marginBottom: last ? 0 : 12 }}>
+                  <div key={g.id} style={{ padding: "16px 18px", borderRadius: 12, background: "#fafbfc", border: "1px solid #eef0f5", borderLeft: `3px solid ${sv.bar}`, marginBottom: last ? 0 : 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: sv.color }}>{sv.label}</span>
                       <span style={{ fontSize: 14.5, fontWeight: 600 }}>{g.jdRequirement}</span>
                     </div>
-                    <div style={{ fontSize: 12.5, color: "#94a3b8", marginBottom: 9, lineHeight: 1.55 }}>
-                      简历中无对应经历，改写无法补足——这是真实差距，不该靠改写假装具备。
+                    <div style={{ fontSize: 12.5, color: "#94a3b8", marginBottom: g.interviewStrategy ? 9 : 0, lineHeight: 1.55 }}>
+                      当前简历未命中这条要求——不该靠改写假装具备，建议面试中诚实应对。
                     </div>
-                    <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65, display: "flex", gap: 8 }}>
-                      <Sparkles size={14} color="#6366f1" style={{ marginTop: 3, flexShrink: 0 }} />
-                      <span><b style={{ color: "#475569", fontWeight: 600 }}>面试应对 </b>{g.interviewStrategy}</span>
-                    </div>
+                    {g.interviewStrategy && (
+                      <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65, display: "flex", gap: 8 }}>
+                        <Sparkles size={14} color="#6366f1" style={{ marginTop: 3, flexShrink: 0 }} />
+                        <span><b style={{ color: "#475569", fontWeight: 600 }}>面试应对 </b>{g.interviewStrategy}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
