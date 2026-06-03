@@ -211,6 +211,7 @@ function VersionsLibrary({ versions }: { versions: CompiledVersion[] }) {
 }
 
 const VersionCard: FC<{ v: CompiledVersion; isLatest: boolean }> = ({ v, isLatest }) => {
+  const navigate = useNavigate();
   const t = matchTier(v.gapAnalysis.overallScore);
   const statusKey = v.applicationMark.applied ? "applied" : "draft";
   const st = STATUS[statusKey];
@@ -222,6 +223,10 @@ const VersionCard: FC<{ v: CompiledVersion; isLatest: boolean }> = ({ v, isLates
   return (
     <div
       className="card vcard"
+      onClick={() => navigate(`/workbench/${v.id}`)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/workbench/${v.id}`); } }}
       style={{
         padding: 18, display: "flex", alignItems: "center", gap: 18,
         borderColor: t.border, borderWidth: 1.5,
@@ -253,8 +258,8 @@ const VersionCard: FC<{ v: CompiledVersion; isLatest: boolean }> = ({ v, isLates
           </span>
         </div>
       </div>
-      <div className="acts" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-        <button className="ibtn" style={iconBtn} title="查看 / 微调"><Eye size={16} color="#64748b" /></button>
+      <div className="acts" style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+        <button className="ibtn" style={iconBtn} title="查看 / 微调" onClick={() => navigate(`/workbench/${v.id}`)}><Eye size={16} color="#64748b" /></button>
         <button className="ibtn" style={iconBtn} title="重新导出"><FileDown size={16} color="#64748b" /></button>
         <button className="ibtn" style={iconBtn} title="更多"><MoreHorizontal size={16} color="#64748b" /></button>
       </div>
