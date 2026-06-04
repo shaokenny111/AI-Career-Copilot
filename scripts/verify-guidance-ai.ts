@@ -130,5 +130,46 @@ check("探针2 不把'挺多'编成具体多位数（除非用 X+ 占位）",
   !MULTI_DIGIT.test(s2.starBullet) || s2.starBullet.includes("X+"), s2.starBullet);
 check("探针2 sourceLevel 为 green/yellow", s2.sourceLevel === "green" || s2.sourceLevel === "yellow", s2.sourceLevel);
 
-console.log(failures === 0 ? "\n🎉 真链路验收全过（#5 JD 驱动 + #6 不编造经历）" : `\n💥 ${failures} 项失败，看上面输出人工核对`);
+// ============================================================================
+// 无 JD 路径（增益非门槛）：#5 通用经历盘点 + #6 诚实红线不得放松
+// ============================================================================
+
+const CATEGORY_WORDS = ["实习", "项目", "课程", "毕设", "社团", "学生", "竞赛", "兼职", "志愿", "活动", "经历"];
+
+console.log("\n===== #5 无 JD：通用经历盘点（不传 jobDescription）=====");
+const q5n = await generateGuidanceQuestions({
+  // 不传 jobDescription → 走通用盘点
+  userInfo: { major: "工商管理", grade: "应届" },
+});
+console.log(JSON.stringify(q5n, null, 2));
+check("#5(无JD) 生成 5-8 题", q5n.questions.length >= 5 && q5n.questions.length <= 8, `${q5n.questions.length} 题`);
+check("#5(无JD) 每题结构合法（topic/question/examples 4-5）",
+  q5n.questions.every((q) => !!q.topic && !!q.question && q.examples.length >= 4 && q.examples.length <= 5));
+check("#5(无JD) 全部 skipAllowed=true", q5n.questions.every((q) => q.skipAllowed === true));
+check("#5(无JD) topic 是经历类别（≥3 题命中类别词，非窄能力点）",
+  q5n.questions.filter((q) => CATEGORY_WORDS.some((w) => q.topic.includes(w))).length >= 3,
+  q5n.questions.map((q) => q.topic).join(" / "));
+check("#5(无JD) 问题引导'做了什么/结果'（整体含 做/负责/结果/什么 等盘点措辞）",
+  q5n.questions.some((q) => /做|负责|结果|什么|参加|组织/.test(q.question)));
+
+// ---- #6 诚实探针 3（无JD最大风险）：弱经历 + 类别词参照，验不放松红线 ----
+console.log("\n===== #6 探针 3（无JD）：食堂打饭（极弱经历，验红线不放松）=====");
+const s3 = await convertToStar({
+  userAnswer: "我在食堂帮忙打过饭，就是给同学盛菜打饭，没别的了。",
+  relatedJdRequirement: "实习经历", // 无 JD 时传的是经历类别词，不是真 JD 要求
+  topic: "实习经历",
+});
+console.log(JSON.stringify(s3, null, 2));
+check("探针3 不拔高（不出现 主导餐饮/运营/统筹/流程优化 等）",
+  !INFLATE_WORDS.some((w) => s3.starBullet.includes(w)) && !/流程优化|服务流程|管理体系/.test(s3.starBullet),
+  s3.starBullet);
+check("探针3 不脑补数字（用户没给数字，bullet 无多位数）",
+  !MULTI_DIGIT.test(s3.starBullet), s3.starBullet);
+check("探针3 sourceLevel 仍 green/yellow（无JD不降格诚实判定）",
+  s3.sourceLevel === "green" || s3.sourceLevel === "yellow", s3.sourceLevel);
+check("探针3 缺角如实标 未明确/missing，不编造成果",
+  s3.extractedElements.result.includes("未明确") || s3.missingElements.length > 0,
+  `result="${s3.extractedElements.result}" missing=[${s3.missingElements.join("/")}]`);
+
+console.log(failures === 0 ? "\n🎉 真链路验收全过（有JD + 无JD 通用盘点 + #6 两路径都不编造经历）" : `\n💥 ${failures} 项失败，看上面输出人工核对`);
 process.exit(failures === 0 ? 0 : 1);
