@@ -261,19 +261,16 @@ export default function CompletePage() {
                 <ShieldCheck size={16} color="#4f46e5" /> 诚实差距 · 这些靠面试应对，不靠改写假装
               </div>
               <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
-                以下是当前简历尚未满足的 JD 要求（与上方匹配度同一套判定，命中的不会出现在这里）。附面试应对（临场怎么说）与能力建设（未来怎么补）建议——只在此处供你准备，不会写进导出的简历。
+                以下是当前简历尚未满足的 JD 要求（与上方匹配度同一套判定，命中的不会出现在这里）。这些不该靠改写假装具备，建议面试中诚实应对——每条附面试应对（临场怎么说）与能力建设（未来怎么补），只在此处供你准备，不会写进导出的简历。
               </div>
               {gaps.map((g, i) => {
                 const sv = GAP_SEVERITY[g.severity];
                 const last = i === gaps.length - 1;
                 return (
                   <div key={g.id} style={{ padding: "16px 18px", borderRadius: 12, background: "#fafbfc", border: "1px solid #eef0f5", borderLeft: `3px solid ${sv.bar}`, marginBottom: last ? 0 : 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: (g.interviewStrategy || g.capabilityAdvice) ? 9 : 0, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: sv.color }}>{sv.label}</span>
                       <span style={{ fontSize: 14.5, fontWeight: 600 }}>{g.jdRequirement}</span>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: "#94a3b8", marginBottom: (g.interviewStrategy || g.capabilityAdvice) ? 9 : 0, lineHeight: 1.55 }}>
-                      当前简历未命中这条要求——不该靠改写假装具备，建议面试中诚实应对。
                     </div>
                     {g.interviewStrategy && (
                       <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65, display: "flex", gap: 8, marginBottom: g.capabilityAdvice ? 8 : 0 }}>
