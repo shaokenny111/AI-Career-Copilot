@@ -259,7 +259,8 @@ export default function UploadPage() {
   }
 
   function onGuidance() {
-    if (!canCompile) return;
+    // 引导只为攒母版，不绑 JD 编译 → JD 是增益不是门槛：有母版即可进，JD 能传就传、空也放行
+    if (!uploaded) return;
     navigate("/guidance", { state: { company, position, jd } });
   }
 
@@ -487,9 +488,9 @@ export default function UploadPage() {
           <div style={{ width: 44, height: 44, borderRadius: 12, background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Lightbulb size={20} color="#d97706" /></div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14.5, fontWeight: 600, color: "#b45309" }}>建议先走引导流程</div>
-            <div style={{ fontSize: 12.5, color: "#92703a", marginTop: 3, lineHeight: 1.5 }}>你的简历信息较少，AI 会根据 JD 提问，帮你一步步补全母版再编译</div>
+            <div style={{ fontSize: 12.5, color: "#92703a", marginTop: 3, lineHeight: 1.5 }}>你的简历信息较少，AI 会带你做经历盘点、补全母版（填了目标 JD 提问更有针对性，不填也可直接开始；编译的 JD 之后再输）</div>
           </div>
-          <button className="pbtn" disabled={!canCompile} onClick={onGuidance} style={{ ...primaryBtn, background: canCompile ? "linear-gradient(135deg,#fb923c,#d97706)" : "#cbd5e1", boxShadow: canCompile ? "0 2px 8px rgba(217,119,6,.3)" : "none", cursor: canCompile ? "pointer" : "not-allowed" }}>进入引导 <ArrowRight size={15} /></button>
+          <button className="pbtn" disabled={!uploaded} onClick={onGuidance} style={{ ...primaryBtn, background: uploaded ? "linear-gradient(135deg,#fb923c,#d97706)" : "#cbd5e1", boxShadow: uploaded ? "0 2px 8px rgba(217,119,6,.3)" : "none", cursor: uploaded ? "pointer" : "not-allowed" }}>进入引导 <ArrowRight size={15} /></button>
         </div>
       ) : (
         <div className="card" style={{ padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>

@@ -90,8 +90,14 @@ export default function GuidancePage() {
   const [major, setMajor] = useState("");
   const [grade, setGrade] = useState("应届");
 
+  // 选填 JD（增益非门槛）：预填 Upload 带来的 ctx，用户可改/可清空
+  const [company, setCompany] = useState(ctx.company ?? "");
+  const [position, setPosition] = useState(ctx.position ?? "");
+  const [jd, setJd] = useState(ctx.jd ?? "");
+
   // questions
   const [questions, setQuestions] = useState<GuidanceQuestion[]>([]);
+  const [jdDriven, setJdDriven] = useState(false); // 本轮问题是否由 JD 驱动（决定 chip 文案）
   const [qLoading, setQLoading] = useState(false);
   const [qError, setQError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
@@ -112,18 +118,20 @@ export default function GuidancePage() {
 
   // ---------------- intro ----------------
 
+  const hasJd = !!jd.trim();
+
   async function startQuestions() {
     if (!major.trim() || qLoading) return;
     setPhase("questions");
+    setJdDriven(hasJd);
     setQLoading(true);
     setQError(null);
     try {
       const out = await generateGuidanceQuestions({
-        jobDescription: {
-          company: ctx.company ?? "",
-          position: ctx.position ?? "",
-          rawText: ctx.jd ?? "",
-        },
+        // 选填：JD 留空则不传 → #5 走通用经历盘点
+        jobDescription: hasJd
+          ? { company: company.trim(), position: position.trim(), rawText: jd.trim() }
+          : undefined,
         userInfo: { major: major.trim(), grade: grade.trim() || "应届" },
       });
       setQuestions(
@@ -287,7 +295,7 @@ export default function GuidancePage() {
 
   // ---------------- 渲染 ----------------
 
-  const jdLabel = `${ctx.company || "目标公司"} · ${ctx.position || "目标岗位"}`;
+  const jdLabel = `${company || "目标公司"} · ${position || "目标岗位"}`;
 
   return (
     <div style={wrap}>
@@ -321,7 +329,7 @@ export default function GuidancePage() {
         <div className="anim">
           <div style={{ display: "flex", gap: 10, fontSize: 12.5, color: "#6366f1", background: "#eef2ff", padding: "11px 14px", borderRadius: 11, marginBottom: 22, lineHeight: 1.55 }}>
             <Lightbulb size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            你的简历信息较少，AI 会根据「{jdLabel}」的 JD 提问。用大白话回答即可，AI 帮你转成简历语言。公司与时间你自己填，AI 不替你编造。
+            AI 会带你做经历盘点，用大白话回答即可，帮你攒成一份简历母版。公司与时间你自己填，AI 不替你编造。
           </div>
           <div className="serif" style={{ fontSize: 24, fontWeight: 600, marginBottom: 20 }}>先告诉我们一点你的背景</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 420 }}>
@@ -332,9 +340,26 @@ export default function GuidancePage() {
               <input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="如 应届 / 大四 / 研二" style={inputStyle} />
             </label>
           </div>
+
+          {/* 选填 JD（增益非门槛） */}
+          <div className="card" style={{ padding: 18, marginTop: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13.5, fontWeight: 600, color: "#334155", marginBottom: 6 }}>
+              <Target size={14} color="#6366f1" /> 目标岗位 JD <span style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8" }}>（选填）</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: "#94a3b8", lineHeight: 1.55, marginBottom: 12 }}>
+              填入目标岗位 JD，提问会更贴合岗位要求；不填也可直接开始，AI 会按经历类型帮你系统盘点。引导只为攒母版，正式编译的 JD 之后再输。
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+              <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="公司（选填）" style={inputStyle} />
+              <input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="职位（选填）" style={inputStyle} />
+            </div>
+            <textarea value={jd} onChange={(e) => setJd(e.target.value)} placeholder="粘贴目标岗位 JD…（选填，留空则做通用经历盘点）"
+              style={{ ...textareaStyle, minHeight: 90 }} />
+          </div>
+
           <button className="pbtn" disabled={!major.trim()} onClick={startQuestions}
             style={{ ...primaryBtn, marginTop: 24, opacity: major.trim() ? 1 : 0.45, cursor: major.trim() ? "pointer" : "not-allowed" }}>
-            开始引导 <ArrowRight size={15} />
+            {hasJd ? "按 JD 开始引导" : "开始通用盘点"} <ArrowRight size={15} />
           </button>
         </div>
       )}
@@ -345,8 +370,8 @@ export default function GuidancePage() {
           {qLoading ? (
             <>
               <Loader2 size={28} color="#4f46e5" className="spin" style={{ animation: "spin 1s linear infinite" }} />
-              <div style={{ fontSize: 14, color: "#475569", fontWeight: 500, marginTop: 14 }}>正在根据 JD 生成引导问题…</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 5 }}>结合「{jdLabel}」的要求，稍候片刻</div>
+              <div style={{ fontSize: 14, color: "#475569", fontWeight: 500, marginTop: 14 }}>正在生成引导问题…</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 5 }}>{jdDriven ? `结合「${jdLabel}」的要求，稍候片刻` : "按经历类型为你系统盘点，稍候片刻"}</div>
             </>
           ) : qError ? (
             <>
@@ -363,7 +388,7 @@ export default function GuidancePage() {
       {/* ---------------- questions ---------------- */}
       {phase === "questions" && q && (
         <div key={step + sub} className="anim">
-          <div style={chip}><Target size={12} /> 对应 JD 要求：{q.topic}</div>
+          <div style={chip}><Target size={12} /> {jdDriven ? "对应 JD 要求" : "经历盘点"}：{q.topic}</div>
           <div className="serif" style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.45, marginBottom: 18 }}>{q.question}</div>
 
           {sub === "ask" ? (
@@ -544,9 +569,11 @@ export default function GuidancePage() {
           </div>
           <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
             <button className="gbtn" onClick={() => navigate("/")} style={{ ...ghostBtn, padding: "11px 20px" }}>返回首页</button>
-            <button className="pbtn" onClick={() => navigate("/compile", { state: ctx })} style={{ ...primaryBtn }}>
-              <Sparkles size={15} /> 立即编译该岗位
-            </button>
+            {hasJd && (
+              <button className="pbtn" onClick={() => navigate("/compile", { state: { company, position, jd } })} style={{ ...primaryBtn }}>
+                <Sparkles size={15} /> 立即编译该岗位
+              </button>
+            )}
           </div>
         </div>
       )}

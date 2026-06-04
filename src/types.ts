@@ -494,7 +494,9 @@ export interface GapStrategyOutput {
 // ---------- Prompt #5：应届生 JD 驱动提问 ----------
 
 export interface GuidanceQuestionsInput {
-  jobDescription: JobDescription;
+  /** 目标 JD（选填）：有则按 JD 能力点提问；无则按"经历类型"通用盘点。
+   *  引导只为攒母版，不绑 JD 编译——故 JD 是"增益"不是"门槛"。 */
+  jobDescription?: JobDescription;
   userInfo: {
     /** 专业 */
     major: string;

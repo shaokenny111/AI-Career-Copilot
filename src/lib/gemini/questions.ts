@@ -26,30 +26,18 @@ const SYSTEM_PROMPT = `你是一名专门帮助应届生挖掘自身经历的求
 
 【提问设计原则】
 
-1. JD 驱动，不要通用模板
-- 错误："你有数据分析经验吗？"（应届生想不起来）
-- 正确："你帮老板做过报表吗？社团统计过经费吗？课程作业处理过数据吗？"
-（具体到他经历过的场景）
-
-2. 每个问题必须有 4-5 个具体例子
+1. 每个问题必须有 4-5 个具体例子
 - 应届生最怕开放性问题
 - 例子覆盖：课程项目 / 实习 / 竞赛 / 社团 / 兼职 / 志愿者
 - 例子要贴近大学生的真实生活
 
-3. 用"做过 X 吗"代替"你的 X 经验"
+2. 用"做过 X 吗"代替"你的 X 经验"
 - 错误："你的团队协作经验？"
 - 正确："你参加过需要分工协作的事吗？比如：小组课程项目、社团活动、学生会工作"
 
-4. 跳过友好
+3. 跳过友好
 - 所有问题都 skip_allowed = true
 - 应届生可能确实没做过，硬问会产生挫败感
-
-【根据 JD 选取问题主题】
-
-1. 解析 JD 的核心能力要求
-2. 从中选 5-8 个应届生可能有相关经历的能力点
-3. 跳过应届生几乎不可能有的能力（如"管理过 50 人团队"）
-4. 优先选可迁移性强的能力（数据分析、团队协作、沟通、学习能力、自驱力）
 
 【例子设计的具体场景库】
 
@@ -68,11 +56,34 @@ const SYSTEM_PROMPT = `你是一名专门帮助应届生挖掘自身经历的求
 - 问题数量 5-8 个，不要超过 8 个（应届生会累）
 - 每个问题不超过 50 字
 - 每个例子不超过 20 字
-- topic 字段用 JD 原词（如果 JD 写"用户研究"，用"用户研究"，不要改成"用户调研"）`;
 
-// ---------- Few-shot Example（文档 8.5，固定内联）----------
+【选题来源】（按本次是否提供 JD，见下方注入的对应区块）`;
 
-const FEW_SHOT_EXAMPLES = `【示例】
+// ---------- 选题区块（按 hasJd 注入其一）----------
+
+/** 有 JD：按 JD 能力点选题（原行为）。 */
+const JD_SELECTION = `【有目标 JD —— 按 JD 能力点选题】
+
+1. 解析 JD 的核心能力要求
+2. 从中选 5-8 个应届生可能有相关经历的能力点
+3. 跳过应届生几乎不可能有的能力（如"管理过 50 人团队"）
+4. 优先选可迁移性强的能力（数据分析、团队协作、沟通、学习能力、自驱力）
+
+topic 字段用 JD 原词（如果 JD 写"用户研究"，用"用户研究"，不要改成"用户调研"）。`;
+
+/** 无 JD：按"经历类型"系统盘点，逐题聚焦一类经历。 */
+const NO_JD_SELECTION = `【没有目标 JD —— 通用经历盘点】
+
+用户暂未提供目标岗位，按"经历类型"系统盘点：逐题聚焦一类经历，
+引导用户讲【一段具体经历】——做了什么、担任什么角色、有什么结果。
+覆盖以下类型（每题一类，选用户最可能有的 5-8 类）：
+实习 / 课程项目·毕设 / 社团·学生组织 / 竞赛 / 兼职 / 志愿者 / 个人项目
+
+topic 字段用经历类别词（如"实习经历""课程项目""社团活动""竞赛经历"），不要编造具体岗位能力点。`;
+
+// ---------- Few-shot Examples（文档 8.5，固定内联；按模式拼对应那一个）----------
+
+const FEW_SHOT_JD = `【示例·有 JD】
 输入：JD 是字节跳动产品经理，要求"产品思维、数据分析、用户洞察、跨部门协作"
 输出：
 {
@@ -140,6 +151,74 @@ const FEW_SHOT_EXAMPLES = `【示例】
   ]
 }`;
 
+const FEW_SHOT_NO_JD = `【示例·无 JD 通用盘点】
+输入：专业=工商管理；年级=应届；（无目标 JD）
+输出：
+{
+  "questions": [
+    {
+      "topic": "实习经历",
+      "question": "你有过实习吗？讲一段：在哪、做了什么、有什么结果？",
+      "examples": [
+        "在公司做过行政或运营支持",
+        "帮带教整理过数据报表",
+        "跟过一个具体项目",
+        "对接过客户或供应商",
+        "实习结束做过汇报答辩"
+      ],
+      "skip_allowed": true
+    },
+    {
+      "topic": "课程项目",
+      "question": "你做过印象最深的课程项目或毕设吗？你负责哪部分？",
+      "examples": [
+        "小组课程项目里负责调研",
+        "毕设独立完成一套方案",
+        "用工具做过数据分析",
+        "写过研究报告",
+        "做过课堂展示 PPT"
+      ],
+      "skip_allowed": true
+    },
+    {
+      "topic": "社团活动",
+      "question": "你在社团 / 学生会 / 班委做过什么具体的事？",
+      "examples": [
+        "组织过一次活动",
+        "负责招新或宣传",
+        "管过社团经费",
+        "对接过赞助或场地",
+        "带过一个小组"
+      ],
+      "skip_allowed": true
+    },
+    {
+      "topic": "竞赛经历",
+      "question": "参加过竞赛吗？什么比赛、你的角色、结果如何？",
+      "examples": [
+        "数学建模负责编程",
+        "商赛做方案展示",
+        "编程比赛拿过名次",
+        "辩论赛担任主力",
+        "创业大赛写商业计划"
+      ],
+      "skip_allowed": true
+    },
+    {
+      "topic": "兼职经历",
+      "question": "做过兼职吗？具体做了什么？",
+      "examples": [
+        "做过家教",
+        "门店销售或收银",
+        "新媒体运营兼职",
+        "活动现场执行",
+        "线上客服"
+      ],
+      "skip_allowed": true
+    }
+  ]
+}`;
+
 // ---------- responseJsonSchema（文档 8.3，snake_case）----------
 
 const RESPONSE_JSON_SCHEMA = {
@@ -186,17 +265,24 @@ const rawSchema = z.object({
 // ---------- Prompt 拼装 ----------
 
 function buildPrompt(input: GuidanceQuestionsInput): string {
+  const hasJd = !!input.jobDescription?.rawText?.trim();
+  const userInfoLine = `用户信息：专业=${input.userInfo.major}；年级=${input.userInfo.grade}`;
+
+  const taskInput = hasJd
+    ? ["JD 信息：", formatJobDescription(input.jobDescription!), "", userInfoLine]
+    : [userInfoLine, "（用户暂未提供目标 JD，做通用经历盘点）"];
+
   return [
     SYSTEM_PROMPT,
+    hasJd ? JD_SELECTION : NO_JD_SELECTION,
     "【参考示例】",
-    FEW_SHOT_EXAMPLES,
+    hasJd ? FEW_SHOT_JD : FEW_SHOT_NO_JD,
     "【本次任务输入】",
-    "JD 信息：",
-    formatJobDescription(input.jobDescription),
+    ...taskInput,
     "",
-    `用户信息：专业=${input.userInfo.major}；年级=${input.userInfo.grade}`,
-    "",
-    "请生成 5-8 个 JD 驱动的引导问题，严格按 JSON Schema。",
+    hasJd
+      ? "请生成 5-8 个 JD 驱动的引导问题，严格按 JSON Schema。"
+      : "请生成 5-8 个通用经历盘点问题，严格按 JSON Schema。",
   ].join("\n");
 }
 
