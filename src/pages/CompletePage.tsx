@@ -24,7 +24,7 @@ import {
 import { getCompiledVersion, loadStorage, setApplicationMark } from "../lib/storage";
 import { useAppStorage } from "../lib/useAppStorage";
 import { computeMatchScore, isBulletAdopted, IMPORTANCE_TO_SEVERITY } from "../lib/scoring";
-import { matchTier } from "../lib/matchTier";
+import { matchTier, MATCH_SCORE_NOTE } from "../lib/matchTier";
 import { formatRelativeDate } from "../lib/datetime";
 import { copyText, downloadDocx, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, GapSeverity, Master, Segment } from "../types";
@@ -215,13 +215,21 @@ export default function CompletePage() {
             <HeroRing value={score.scoreNow} delta={score.delta} />
             <div style={{ flex: 1 }}>
               <div style={sectionTitle}>整份简历匹配度</div>
+              {/* 定性档位：与分数数字同等醒目的主锚（±波动多数不跨档，档位更稳） */}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 10, padding: "6px 14px", borderRadius: 99, background: matchTier(score.scoreNow).bg, border: `1px solid ${matchTier(score.scoreNow).border}` }}>
+                <span style={{ width: 8, height: 8, borderRadius: 99, background: matchTier(score.scoreNow).color, flexShrink: 0 }} />
+                <span style={{ fontSize: 16, fontWeight: 600, color: matchTier(score.scoreNow).color }}>{matchTier(score.scoreNow).label}</span>
+              </div>
               <div style={{ fontSize: 15, color: "#334155", lineHeight: 1.7, margin: "12px 0" }}>
                 按 JD 要求<b style={{ fontWeight: 600 }}>加权命中</b>计算，基于你实际采纳的改写。
-                <br />改写前 {score.scoreBefore} 分，当前 <b style={{ fontWeight: 600, color: matchTier(score.scoreNow).color }}>{score.scoreNow}</b> 分（{matchTier(score.scoreNow).label}）。
+                <br />改写前 {score.scoreBefore} 分，当前 <b style={{ fontWeight: 600, color: matchTier(score.scoreNow).color }}>{score.scoreNow}</b> 分。
               </div>
               <button onClick={() => setShowDetail(!showDetail)} className="gbtn" style={{ ...ghostBtn, marginTop: 6, padding: "7px 13px", fontSize: 12.5 }}>
                 {showDetail ? <ChevronUp size={14} /> : <ChevronDown size={14} />} 各段采纳明细
               </button>
+              <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6, marginTop: 14 }}>
+                {MATCH_SCORE_NOTE}
+              </div>
             </div>
           </div>
 

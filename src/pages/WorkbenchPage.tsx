@@ -29,7 +29,7 @@ import {
   Info, Check, X, ArrowLeft, ArrowRight, Sparkles, Database, Target, Lock,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage, updateCompiledVersion } from "../lib/storage";
-import { matchTier } from "../lib/matchTier";
+import { matchTier, MATCH_SCORE_NOTE } from "../lib/matchTier";
 import { computeMatchScore, computeSegmentRequirements } from "../lib/scoring";
 import type {
   CompiledVersion, Master, RewrittenBullet, Segment, SegmentDecision, SourceLevel,
@@ -434,11 +434,21 @@ export default function WorkbenchPage() {
                   </div>
                   <Ring value={score.scoreNow} label="当前" size={116} stroke={11} />
                 </div>
+                {/* 定性档位：与分数数字同等醒目的主锚（与完成页一致） */}
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 13px", borderRadius: 99, background: matchTier(score.scoreNow).bg, border: `1px solid ${matchTier(score.scoreNow).border}` }}>
+                    <span style={{ width: 7, height: 7, borderRadius: 99, background: matchTier(score.scoreNow).color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 14, fontWeight: 600, color: matchTier(score.scoreNow).color }}>{matchTier(score.scoreNow).label}</span>
+                  </div>
+                </div>
                 <div style={{ fontSize: 11.5, color: "#94a3b8", textAlign: "center", marginTop: 12, lineHeight: 1.5 }}>
                   采纳更多改写 / 确认 AI 补充，分数实时上涨
                 </div>
                 <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 12, fontSize: 10.5, color: "#94a3b8" }}>
                   <Legend c="#e11d48" t="<60" /><Legend c="#d97706" t="60-70" /><Legend c="#059669" t="70-80" /><Legend c="#4f46e5" t="80+" />
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 12, lineHeight: 1.55, borderTop: "1px solid #eef0f5", paddingTop: 12 }}>
+                  {MATCH_SCORE_NOTE}
                 </div>
               </div>
             ) : (

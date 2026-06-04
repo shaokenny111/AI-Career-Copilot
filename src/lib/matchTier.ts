@@ -34,3 +34,12 @@ export function matchTier(score: number): MatchTier {
   }
   return { color: "#e11d48", light: "#fb7185", border: "#fecdd3", bg: "#fff1f2", label: "差距较大" };
 }
+
+/**
+ * 分数波动说明（产品门面文案，工作台 / 完成页共用，保证两处一致）。
+ * 诚实平实：分数由 AI 评估得出、每次会有小幅波动，档位相对稳定，
+ * 引导用户把"档位"当作同等重要的综合判断锚，而非死盯一个精确数字。
+ * 刻意不写成免责声明腔——是给用户的使用提示，不是甩锅条款。
+ */
+export const MATCH_SCORE_NOTE =
+  "分数由 AI 评估得出，每次会有几分上下波动；档位相对稳定，建议结合档位综合判断。";
