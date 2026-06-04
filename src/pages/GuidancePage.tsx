@@ -20,8 +20,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sparkles, ArrowRight, SkipForward, Check, Lightbulb, Target,
   CheckCircle2, ChevronLeft, CircleHelp, Plus, Trash2, AlertCircle,
+  Loader2, RotateCw,
 } from "lucide-react";
 import type { BasicInfo, Master, SegmentType, SourceLevel } from "../types";
+import { generateGuidanceQuestions, convertToStar } from "../lib/gemini";
 import {
   assembleGuidanceMaster, genLocalId, validateDrafts,
   type GuidanceBullet, type SegmentDraft,
@@ -29,35 +31,14 @@ import {
 import { loadStorage, saveStorage } from "../lib/storage";
 
 // ---------------------------------------------------------------------------
-// 桩数据 / 桩函数（第一步占位，第二步换真 #5/#6）
+// 引导问题（#5 输出投影到本页只用的字段）
 // ---------------------------------------------------------------------------
 
 interface GuidanceQuestion {
+  /** JD 能力点（#5 的 topic，用 JD 原词）——既作「对应 JD 要求」chip，也作 #6 的 relatedJdRequirement */
   topic: string;
-  jdReq: string;
   question: string;
   examples: string[];
-}
-
-/** TODO(Phase4-step2)：换成 generateGuidanceQuestions(#5)，按 JD + major/grade 生成。 */
-function loadQuestionsStub(): GuidanceQuestion[] {
-  return [
-    {
-      topic: "数据分析", jdReq: "数据分析能力",
-      question: "你处理过一批数据并从中得出结论吗？比如算过账、做过报表、跑过模型？",
-      examples: ["金融课程作业用 Excel 建模", "实习时整理行业数据", "学生会统计活动经费", "数学建模处理公开数据"],
-    },
-    {
-      topic: "产品思维", jdReq: "产品思维",
-      question: "你做过优化流程、解决某个痛点的事吗？发现某个东西不好用然后改进了它？",
-      examples: ["优化社团报名流程", "做了个自动算账的小工具", "改进信息收集表格", "商赛设计一套方案"],
-    },
-    {
-      topic: "跨部门协作", jdReq: "跨部门协作",
-      question: "你参加过需要和不同背景的人分工协作的事吗？",
-      examples: ["学生会联合办晚会", "跨专业组队参赛", "小组作业统筹分工", "志愿者活动协调排班"],
-    },
-  ];
 }
 
 interface StarResult {
@@ -66,14 +47,11 @@ interface StarResult {
   missingElements: string[];
 }
 
-/** TODO(Phase4-step2)：换成 convertToStar(#6)（烧配额）。
- *  桩仅把回答原样包一层占位文本，sourceLevel 固定 yellow，便于先验结构与展示。 */
-function convertToStarStub(answer: string): StarResult {
-  return {
-    text: `（待 #6 转换）${answer.trim()}`,
-    sourceLevel: "yellow",
-    missingElements: ["可量化的结果或规模"],
-  };
+/** 诚实红线：Phase 4 的 bullet 只整理用户真实回答，绝不渲染/落盘 JD 反写的 red。
+ *  #6 偶尔把"STAR 结构缺角"（如用户没说结果）标 red——这类按 yellow(推断) 处理，
+ *  缺角已由 missingElements 如实呈现，不会静默写入一条凭空补的 red bullet。 */
+function clampSourceLevel(level: SourceLevel): "green" | "yellow" {
+  return level === "green" ? "green" : "yellow";
 }
 
 // ---------------------------------------------------------------------------
@@ -114,10 +92,14 @@ export default function GuidancePage() {
 
   // questions
   const [questions, setQuestions] = useState<GuidanceQuestion[]>([]);
+  const [qLoading, setQLoading] = useState(false);
+  const [qError, setQError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [sub, setSub] = useState<"ask" | "star">("ask");
   const [answer, setAnswer] = useState("");
   const [star, setStar] = useState<StarResult | null>(null);
+  const [starLoading, setStarLoading] = useState(false);
+  const [starError, setStarError] = useState<string | null>(null);
 
   // 攒下的 bullet
   const [bullets, setBullets] = useState<GuidanceBullet[]>([]);
@@ -130,14 +112,37 @@ export default function GuidancePage() {
 
   // ---------------- intro ----------------
 
-  function startQuestions() {
-    const qs = loadQuestionsStub(); // TODO(step2): await generateGuidanceQuestions
-    setQuestions(qs);
-    setStep(0);
-    setSub("ask");
-    setAnswer("");
-    setStar(null);
+  async function startQuestions() {
+    if (!major.trim() || qLoading) return;
     setPhase("questions");
+    setQLoading(true);
+    setQError(null);
+    try {
+      const out = await generateGuidanceQuestions({
+        jobDescription: {
+          company: ctx.company ?? "",
+          position: ctx.position ?? "",
+          rawText: ctx.jd ?? "",
+        },
+        userInfo: { major: major.trim(), grade: grade.trim() || "应届" },
+      });
+      setQuestions(
+        out.questions.map((q) => ({
+          topic: q.topic,
+          question: q.question,
+          examples: q.examples,
+        })),
+      );
+      setStep(0);
+      setSub("ask");
+      setAnswer("");
+      setStar(null);
+    } catch (e) {
+      console.error("[Guidance] #5 generateGuidanceQuestions failed", e);
+      setQError("问题生成失败了，请重试。");
+    } finally {
+      setQLoading(false);
+    }
   }
 
   // ---------------- questions ----------------
@@ -147,15 +152,34 @@ export default function GuidancePage() {
   const isLast = step === total - 1;
   const progress = total === 0 ? 0 : ((step + (sub === "star" ? 0.6 : 0.1)) / total) * 100;
 
-  function toStar() {
-    if (!answer.trim()) return;
-    setStar(convertToStarStub(answer)); // TODO(step2): await convertToStar(#6)
-    setSub("star");
+  async function toStar() {
+    if (!answer.trim() || !q || starLoading) return;
+    setStarLoading(true);
+    setStarError(null);
+    try {
+      const out = await convertToStar({
+        userAnswer: answer.trim(),
+        relatedJdRequirement: q.topic,
+        topic: q.topic,
+      });
+      setStar({
+        text: out.starBullet,
+        sourceLevel: clampSourceLevel(out.sourceLevel),
+        missingElements: out.missingElements,
+      });
+      setSub("star");
+    } catch (e) {
+      console.error("[Guidance] #6 convertToStar failed", e);
+      setStarError("转换失败了，请重试。");
+    } finally {
+      setStarLoading(false);
+    }
   }
 
   function advance() {
     setAnswer("");
     setStar(null);
+    setStarError(null);
     if (isLast) {
       setPhase("grouping");
     } else {
@@ -275,6 +299,7 @@ export default function GuidancePage() {
         .ex:hover { border-color:#c7d2fe; background:#f5f3ff; color:#4338ca; }
         textarea:focus, input:focus, select:focus { border-color:#a5b4fc; outline:none; }
         @keyframes fadeUp { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .anim { animation: fadeUp .3s ease; }
       `}</style>
 
@@ -314,10 +339,31 @@ export default function GuidancePage() {
         </div>
       )}
 
+      {/* ---------------- questions：#5 加载态 / 错误态 ---------------- */}
+      {phase === "questions" && questions.length === 0 && (
+        <div className="anim" style={{ textAlign: "center", padding: "60px 0" }}>
+          {qLoading ? (
+            <>
+              <Loader2 size={28} color="#4f46e5" className="spin" style={{ animation: "spin 1s linear infinite" }} />
+              <div style={{ fontSize: 14, color: "#475569", fontWeight: 500, marginTop: 14 }}>正在根据 JD 生成引导问题…</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 5 }}>结合「{jdLabel}」的要求，稍候片刻</div>
+            </>
+          ) : qError ? (
+            <>
+              <AlertCircle size={26} color="#e11d48" />
+              <div style={{ fontSize: 13.5, color: "#e11d48", marginTop: 12 }}>{qError}</div>
+              <button className="gbtn" onClick={startQuestions} style={{ ...ghostBtn, margin: "16px auto 0" }}>
+                <RotateCw size={14} /> 重试
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
+
       {/* ---------------- questions ---------------- */}
       {phase === "questions" && q && (
         <div key={step + sub} className="anim">
-          <div style={chip}><Target size={12} /> 对应 JD 要求：{q.jdReq}</div>
+          <div style={chip}><Target size={12} /> 对应 JD 要求：{q.topic}</div>
           <div className="serif" style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.45, marginBottom: 18 }}>{q.question}</div>
 
           {sub === "ask" ? (
@@ -331,13 +377,20 @@ export default function GuidancePage() {
               </div>
               <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="用你自己的话说说就行，不用写得正式…" autoFocus
                 style={textareaStyle} />
+              {starError && (
+                <div style={{ marginTop: 12, fontSize: 12.5, color: "#e11d48", background: "#fff1f2", border: "1px solid #fecdd3", padding: "9px 12px", borderRadius: 9 }}>
+                  {starError}
+                </div>
+              )}
               <div style={rowBetween}>
-                <button className="gbtn" onClick={skip} style={{ ...ghostBtn, color: "#94a3b8", border: "none", padding: "8px 4px" }}>
+                <button className="gbtn" onClick={skip} disabled={starLoading} style={{ ...ghostBtn, color: "#94a3b8", border: "none", padding: "8px 4px", opacity: starLoading ? 0.5 : 1, cursor: starLoading ? "not-allowed" : "pointer" }}>
                   <SkipForward size={14} /> 这条跳过
                 </button>
-                <button className="pbtn" onClick={toStar} disabled={!answer.trim()}
-                  style={{ ...primaryBtn, opacity: answer.trim() ? 1 : 0.45, cursor: answer.trim() ? "pointer" : "not-allowed" }}>
-                  <Sparkles size={15} /> 转成简历语言
+                <button className="pbtn" onClick={toStar} disabled={!answer.trim() || starLoading}
+                  style={{ ...primaryBtn, opacity: answer.trim() && !starLoading ? 1 : 0.45, cursor: answer.trim() && !starLoading ? "pointer" : "not-allowed" }}>
+                  {starLoading
+                    ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> 转换中…</>
+                    : <><Sparkles size={15} /> {starError ? "重试转换" : "转成简历语言"}</>}
                 </button>
               </div>
             </>
