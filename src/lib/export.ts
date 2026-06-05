@@ -13,6 +13,21 @@
 // ============================================================================
 
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import type { Segment } from "../types";
+import { detectContentLang } from "./lang";
+
+// detectContentLang 现归零依赖的 ./lang（摄入/编译层也复用，避免耦合 docx）；
+// 此处再导出，保持既有 import { detectContentLang } from "../lib/export" 不破。
+export { detectContentLang };
+
+/** 段落起止时间 → 显示串（在职段：中文显示"至今"，英文显示"Present"）。无明确时间返回空串。
+ *  铁律：每段经历必须带回时间线，绝不可在完成页/导出丢失。 */
+export function formatSegTime(seg: Segment, lang: "zh" | "en"): string {
+  const { start, end } = seg.timeRange;
+  const endLabel = seg.isCurrent ? (lang === "en" ? "Present" : "至今") : end;
+  if (start && endLabel) return `${start} ~ ${endLabel}`;
+  return start || endLabel || "";
+}
 
 /** 一段的导出内容（标题 + 副标题/地点 + 时间线 + 采纳后的 bullet 纯文本）。
  *  铁律：Segment 上所有"该出现在简历里"的字段都必须带回这里——
@@ -40,6 +55,11 @@ export interface ExportModel {
   /** 顶部上下文标签（公司 · 职位），与完成页屏幕一致 */
   jdLabel: string;
   segments: ExportSegment[];
+  /** 投递内容语言（由 CompletePage 按真实内容检测得出）。省略按 "zh" 处理。
+   *  用途：PDF 的 <html lang>、固定文案（副标题/兜底标题）跟随语言，
+   *  避免英文简历的导出里混入中文 token。注：母版/子版的 language 字段当前在
+   *  摄入层恒为 "zh"（未做真检测），不可信，故导出按内容语言判定。 */
+  lang?: "zh" | "en";
 }
 
 /** 单段 → 纯文本（标题 + 副标题/地点·时间线 + 每条 bullet 一行，无标注符号） */
@@ -82,10 +102,11 @@ export async function copyText(text: string): Promise<void> {
 /** 纯函数：ExportModel → docx Document（Node 可测，浏览器下载共用，单一构建逻辑）。
  *  内容与"最终投递内容"逐字一致：标题(H1)=jdLabel，每段(H2)=title，bullet 列表。 */
 export function buildDocxDocument(model: ExportModel): Document {
+  const fallbackTitle = model.lang === "en" ? "Resume" : "投递版本";
   const children: Paragraph[] = [
     new Paragraph({
       heading: HeadingLevel.HEADING_1,
-      children: [new TextRun({ text: model.jdLabel || "投递版本" })],
+      children: [new TextRun({ text: model.jdLabel || fallbackTitle })],
     }),
   ];
   for (const seg of model.segments) {
@@ -140,7 +161,10 @@ function escapeHtml(s: string): string {
 /** 纯函数：ExportModel → 自包含打印 HTML（系统中文字体 + 打印 CSS）。
  *  结构与"最终投递内容"逐字一致：H1=jdLabel，每段 H2=title，bullet 列表。 */
 export function buildPrintHtml(model: ExportModel, title?: string): string {
-  const docTitle = escapeHtml(title || model.jdLabel || "投递版本");
+  const isEn = model.lang === "en";
+  const fallbackTitle = isEn ? "Resume" : "投递版本";
+  const subLabel = isEn ? "Final Resume Content" : "采纳后的最终投递内容";
+  const docTitle = escapeHtml(title || model.jdLabel || fallbackTitle);
   const segs = model.segments
     .map((seg) => {
       const lis = seg.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("");
@@ -150,7 +174,7 @@ export function buildPrintHtml(model: ExportModel, title?: string): string {
     })
     .join("");
   return `<!DOCTYPE html>
-<html lang="zh"><head><meta charset="utf-8"><title>${docTitle}</title>
+<html lang="${isEn ? "en" : "zh"}"><head><meta charset="utf-8"><title>${docTitle}</title>
 <style>
   @page { margin: 18mm; }
   * { box-sizing: border-box; }
@@ -168,8 +192,8 @@ export function buildPrintHtml(model: ExportModel, title?: string): string {
   section { page-break-inside: avoid; }
 </style></head>
 <body>
-  <h1>${escapeHtml(model.jdLabel || "投递版本")}</h1>
-  <div class="sub">采纳后的最终投递内容</div>
+  <h1>${escapeHtml(model.jdLabel || fallbackTitle)}</h1>
+  <div class="sub">${escapeHtml(subLabel)}</div>
   ${segs}
 </body></html>`;
 }

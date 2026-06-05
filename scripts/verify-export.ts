@@ -15,10 +15,13 @@ import { PDFParse } from "pdf-parse";
 import {
   buildDocxDocument,
   buildPrintHtml,
+  detectContentLang,
+  formatSegTime,
   modelToPlainText,
   segmentToPlainText,
   type ExportModel,
 } from "../src/lib/export";
+import type { Segment } from "../src/types";
 
 const model: ExportModel = {
   jdLabel: "字节跳动 · AI 产品经理",
@@ -126,6 +129,57 @@ ok(leaks(full).length === 0, "复制全文不含任何差距文本");
 ok(leaks(printHtml).length === 0, "PDF 打印 HTML 不含任何差距文本");
 ok(leaks(xml).length === 0, "Word document.xml 不含任何差距文本");
 console.log("  （exportModel 仅由 includedSegments 派生、从不读 gapAnalysis → 差距天然不入导出）");
+
+console.log("\n⑤ 英文简历语言渗漏修复（确定性中文 token 不进英文导出）");
+// 语言判据：内容检测（language 字段在摄入层恒为 zh、不可信，导出按真实内容判）
+ok(detectContentLang("Built dashboards and delivered business insights with SQL") === "en", "英文内容 → 检测为 en");
+ok(detectContentLang("跨部门协作打通业务、风控、财务数据口径") === "zh", "中文内容 → 检测为 zh");
+ok(detectContentLang("熟练使用 SQL 进行业务数据查询与分析") === "zh", "中英混排（中文为主）→ zh");
+
+// 在职段时间串：中文"至今" / 英文"Present"（覆盖验收线"三档不再出现'至今'"）
+const segBase = {
+  id: "seg_x", type: "work" as const, title: "t", content: "c",
+  tags: [], createdAt: "", updatedAt: "",
+};
+const curSeg: Segment = { ...segBase, timeRange: { start: "2023-07", end: "present" }, isCurrent: true };
+const pastSeg: Segment = { ...segBase, timeRange: { start: "2024-01", end: "2025-03" }, isCurrent: false };
+ok(formatSegTime(curSeg, "en") === "2023-07 ~ Present", "在职段 en → '2023-07 ~ Present'（无'至今'）");
+ok(formatSegTime(curSeg, "zh") === "2023-07 ~ 至今", "在职段 zh → '2023-07 ~ 至今'（中文路径不受影响）");
+ok(formatSegTime(pastSeg, "en") === "2024-01 ~ 2025-03", "已结束段 en → 原起止（不受语言影响）");
+
+// 英文导出模型：PDF/Word 固定文案 + lang 跟随英文，绝无中文 token
+const enModel: ExportModel = {
+  lang: "en",
+  jdLabel: "Acme Corp · Data Analyst",
+  segments: [
+    {
+      title: "Acme Corp — Data Analyst",
+      typeLabel: "Work",
+      subtitle: "Shanghai",
+      timeRange: formatSegTime(curSeg, "en"),
+      bullets: ["Built dashboards and delivered business insights with SQL"],
+    },
+  ],
+};
+const enHtml = buildPrintHtml(enModel);
+const enFull = modelToPlainText(enModel);
+ok(enHtml.includes('lang="en"'), "PDF HTML 的 <html lang> = en");
+ok(enHtml.includes("Final Resume Content"), "PDF 副标题英文化（Final Resume Content）");
+ok(!enHtml.includes("采纳后的最终投递内容"), "PDF 不含中文副标题 token");
+ok(!enHtml.includes("至今"), "PDF（HTML）不含'至今'");
+ok(!enFull.includes("至今"), "复制全文（英文）不含'至今'");
+// 英文 docx 实际解包验无中文 token
+const enBuf = await Packer.toBuffer(buildDocxDocument(enModel));
+const enDocxPath = join(dir, "out-en.docx");
+writeFileSync(enDocxPath, enBuf);
+const enDocXml = execSync(`unzip -p "${enDocxPath}" word/document.xml`, { encoding: "utf8" });
+ok(!enDocXml.includes("至今"), "Word（英文）不含'至今'");
+ok(enDocXml.includes("Present"), "Word（英文）在职段显示 Present");
+
+// 回归：中文路径固定文案不变
+const zhHtml = buildPrintHtml(model);
+ok(zhHtml.includes('lang="zh"'), "中文 PDF 的 <html lang> 仍为 zh");
+ok(zhHtml.includes("采纳后的最终投递内容"), "中文 PDF 副标题不变");
 
 console.log(`\n${pass ? "✅ 7B/7C 验收通过" : "❌ 验收失败"}`);
 process.exit(pass ? 0 : 1);

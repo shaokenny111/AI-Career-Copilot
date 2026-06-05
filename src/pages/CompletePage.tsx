@@ -26,7 +26,7 @@ import { useAppStorage } from "../lib/useAppStorage";
 import { computeMatchScore, isBulletAdopted, IMPORTANCE_TO_SEVERITY } from "../lib/scoring";
 import { matchTier, MATCH_SCORE_NOTE } from "../lib/matchTier";
 import { formatRelativeDate } from "../lib/datetime";
-import { copyText, downloadDocx, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
+import { copyText, detectContentLang, downloadDocx, formatSegTime, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, GapSeverity, Master, Segment } from "../types";
 
 // 实质差距严重度 → 标签 / 配色（hard_filter / important / minor）
@@ -40,15 +40,6 @@ const SEG_TYPE_LABEL: Record<Segment["type"], string> = {
   work: "工作经历", internship: "实习经历", project: "项目经历", education: "教育背景",
   skill: "技能特长", certificate: "证书", award: "获奖", activity: "课外活动", other: "其他",
 };
-
-/** 段落起止时间 → 显示串（与工作台口径一致：在职显示"至今"）。无明确时间返回空串。
- *  铁律：每段经历必须带回时间线，绝不可在完成页/导出丢失。 */
-function formatSegTime(seg: Segment): string {
-  const { start, end } = seg.timeRange;
-  const endLabel = seg.isCurrent ? "至今" : end;
-  if (start && endLabel) return `${start} ~ ${endLabel}`;
-  return start || endLabel || "";
-}
 
 export default function CompletePage() {
   const navigate = useNavigate();
@@ -118,8 +109,16 @@ export default function CompletePage() {
   }, [score, version]);
 
   // 导出单一数据源：从已渲染的 includedSegments 派生，导出与屏幕逐字同源
-  const exportModel: ExportModel = useMemo(
-    () => ({
+  const exportModel: ExportModel = useMemo(() => {
+    // 语言按真实投递内容（段标题/副标题/采纳后 bullet）检测，不读不可信的 language 字段
+    const contentBlob = includedSegments
+      .map(({ seg, adoptedBullets }) =>
+        [seg.title, seg.subtitle ?? "", ...adoptedBullets.map((b) => b.userEditedText ?? b.rewrittenText)].join(" "),
+      )
+      .join(" ");
+    const lang = detectContentLang(contentBlob);
+    return {
+      lang,
       jdLabel: version
         ? `${version.jobDescription.company} · ${version.jobDescription.position}`
         : "",
@@ -127,12 +126,11 @@ export default function CompletePage() {
         title: seg.title,
         typeLabel: SEG_TYPE_LABEL[seg.type],
         ...(seg.subtitle ? { subtitle: seg.subtitle } : {}),
-        timeRange: formatSegTime(seg),
+        timeRange: formatSegTime(seg, lang),
         bullets: adoptedBullets.map((b) => b.userEditedText ?? b.rewrittenText),
       })),
-    }),
-    [version, includedSegments],
-  );
+    };
+  }, [version, includedSegments]);
 
   // 复制反馈（key: "all" 或 "seg_<i>"），短暂高亮后复位
   const [copied, setCopied] = useState<string | null>(null);

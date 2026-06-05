@@ -15,6 +15,7 @@ import type {
   ResumeTypeInput,
   Segment,
 } from "../types";
+import { detectContentLang } from "./lang";
 
 /** 估算一段经历的 bullet 数：按换行 / 中英文句号分号切，过滤过短碎片，至少 1 */
 function estimateBulletCount(content: string): number {
@@ -70,6 +71,12 @@ export function buildMaster(
   resumeType: ResumeType,
 ): Master {
   const now = new Date().toISOString();
+  // 语言诚实化：按母版真实内容（各段标题/副标题/正文）检测，绝不硬编码。
+  // A/B(#7 解析) 与 C(引导组装) 两条建母版路径都经此函数，故两者一并被覆盖。
+  const langBlob = parsed.segments
+    .map((s) => [s.title, s.subtitle ?? "", s.content].join(" "))
+    .join(" ");
+  const language = detectContentLang(langBlob);
   const segments: Segment[] = parsed.segments.map((s) => ({
     id: genId(`seg_${s.type}`),
     type: s.type,
@@ -87,7 +94,7 @@ export function buildMaster(
     id: genId("master"),
     basicInfo: parsed.basicInfo,
     segments,
-    language: "zh",
+    language,
     resumeType,
     createdAt: now,
     updatedAt: now,
