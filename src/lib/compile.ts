@@ -40,6 +40,15 @@ import {
 } from "./gemini";
 import { computeMatchScore, IMPORTANCE_TO_SEVERITY } from "./scoring";
 
+/**
+ * 编译阶段标识——供 UI 渲染分阶段加载文案（编译要打 5+ 次 Gemini、十几秒起步，
+ * 期间不能白屏；用阶段回调把"管线跑到哪了"实时反馈给加载页）。
+ *   analyzing    第一相：相关性评估 / 经历改写 / JD 要求提取（并发，最耗时）
+ *   matching     第二相：要求↔bullet 语义映射
+ *   strategizing 第三相：为未满足要求生成面试策略
+ */
+export type CompileStage = "analyzing" | "matching" | "strategizing";
+
 /** 生成稳定随机 id（与 resumeIntake 同风格，无第三方依赖） */
 function genId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random()
@@ -97,10 +106,12 @@ function defaultVersionName(jd: JobDescription, when: Date): string {
 export async function runCompile(
   master: Master,
   jd: JobDescription,
+  onProgress?: (stage: CompileStage) => void,
 ): Promise<CompiledVersion> {
   const segments = master.segments;
 
   // ── 第一相：相关性 / 改写 / JD 要求提取（互不依赖，并发）──
+  onProgress?.("analyzing");
   // 注意：#3 已退化为"只给未满足要求写应对话术"，依赖 #9 的满足判定，故移到第三相。
   const [relevanceOut, rewrites, parsedJd] = await Promise.all([
     evaluateRelevance({ segments, jobDescription: jd }),
@@ -159,6 +170,7 @@ export async function runCompile(
   // ── 第二相：要求↔bullet 语义映射（#9）──
   // 只取已纳入段落的 bullet（隐藏段 bullets 为空）；用 rewrittenText 作为匹配文本
   // （编译期尚无用户编辑）。
+  onProgress?.("matching");
   const allBullets = segmentDecisions.flatMap((d) =>
     d.bullets.map((b) => ({ id: b.id, text: b.rewrittenText })),
   );
@@ -176,6 +188,7 @@ export async function runCompile(
 
   const strategyByReq = new Map<string, { interviewStrategy: string; capabilityAdvice: string }>();
   if (unsatisfied.length > 0) {
+    onProgress?.("strategizing");
     const { strategies } = await generateGapStrategies({
       unsatisfiedRequirements: unsatisfied.map((r) => ({
         id: r.id,
