@@ -177,6 +177,30 @@ export function updateCompiledVersion(version: CompiledVersion): void {
   });
 }
 
+/** 永久删除一个子版（单机：localStorage 删了即不可恢复）。id 不存在则无操作。
+ *  调用方必须先做二次确认——本函数只负责落盘删除，不做任何防呆。 */
+export function deleteCompiledVersion(id: string): void {
+  const store = loadStorage();
+  saveStorage({
+    ...store,
+    compiledVersions: store.compiledVersions.filter((v) => v.id !== id),
+  });
+}
+
+/** 重命名一个子版（改 name，便于用户识别）。空白名忽略；不改 updatedAt
+ *  （重命名是元数据，不应扰动子版库"最后更新"排序，与 setApplicationMark 同口径）。 */
+export function renameCompiledVersion(id: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const store = loadStorage();
+  saveStorage({
+    ...store,
+    compiledVersions: store.compiledVersions.map((v) =>
+      v.id === id ? { ...v, name: trimmed } : v,
+    ),
+  });
+}
+
 /**
  * 设置某子版的投递标记（7D）。applied=true 记录当前时间为 appliedAt，false 清空。
  * 不改 updatedAt（投递是元数据标记，不应改变子版库的"最后更新"排序）。

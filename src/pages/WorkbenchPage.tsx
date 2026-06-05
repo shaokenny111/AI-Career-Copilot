@@ -27,12 +27,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, CircleHelp, CircleAlert, AlertCircle, Pencil, ChevronDown,
   Info, Check, X, ArrowLeft, ArrowRight, Sparkles, Database, Target, Lock,
-  ListChecks, ThumbsUp,
+  ListChecks, ThumbsUp, Eye,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage, updateCompiledVersion } from "../lib/storage";
 import { matchTier, MATCH_SCORE_NOTE } from "../lib/matchTier";
-import { computeMatchScore, computeSegmentRequirements } from "../lib/scoring";
+import { computeMatchScore, computeSegmentRequirements, isBulletAdopted } from "../lib/scoring";
 import { FACT_LIST_TYPES } from "../lib/compile";
+import { formatSegTime, segmentMetaLine, detectContentLang, type ExportSegment } from "../lib/export";
 import type {
   CompiledVersion, Master, RewrittenBullet, Segment, SegmentDecision, SourceLevel,
 } from "../types";
@@ -76,6 +77,15 @@ export default function WorkbenchPage() {
   const [activeId, setActiveId] = useState<string>("");
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [previewOpen, setPreviewOpen] = useState(false); // 单段"最终效果"预览弹窗
+
+  // Esc 关闭预览弹窗
+  useEffect(() => {
+    if (!previewOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPreviewOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewOpen]);
 
   // ===== 全局匹配度（确定性加权命中率；随采纳/确认/编辑实时重算）=====
   // 与完成页共用 src/lib/scoring.ts，保证两处分数一致。version 任一变更触发重算。
@@ -232,6 +242,27 @@ export default function WorkbenchPage() {
   const activeSeg = segments.find((s) => s.id === effectiveActive);
   const activeDec = activeSeg ? decisionOf(activeSeg.id) : undefined;
   const jd = version.jobDescription;
+
+  // 单段预览数据：与 exportModel / 完成页【同源】—— 采纳判定用 isBulletAdopted、
+  // 文本取 userEditedText ?? rewrittenText、时间用 formatSegTime，绝不另起一套取数。
+  const previewSeg: ExportSegment | null =
+    activeSeg && activeDec && activeDec.finalIncluded
+      ? (() => {
+          const bullets = activeDec.bullets
+            .filter(isBulletAdopted)
+            .map((b) => b.userEditedText ?? b.rewrittenText);
+          const lang = detectContentLang(
+            [activeSeg.title, activeSeg.subtitle ?? "", ...bullets].join(" "),
+          );
+          return {
+            title: activeSeg.title,
+            typeLabel: SEG_TYPE_LABEL[activeSeg.type],
+            ...(activeSeg.subtitle ? { subtitle: activeSeg.subtitle } : {}),
+            timeRange: formatSegTime(activeSeg, lang),
+            bullets,
+          };
+        })()
+      : null;
 
   // 本段 JD 要求命中明细（与全局分数同一套判定，右栏块 2 联动）
   const segReqs = activeDec
@@ -395,6 +426,13 @@ export default function WorkbenchPage() {
                         />
                       ))}
                     </div>
+
+                    {/* 预览本段最终效果（弹窗展示采纳后的干净简历文本，与导出同源） */}
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
+                      <button className="gbtn" onClick={() => setPreviewOpen(true)} style={{ ...ghostBtn, padding: "9px 16px", fontSize: 13 }}>
+                        <Eye size={15} /> 预览本段最终效果
+                      </button>
+                    </div>
                   </>
                 )}
 
@@ -510,6 +548,43 @@ export default function WorkbenchPage() {
           </section>
         </aside>
       </div>
+
+      {/* 预览本段最终效果弹窗：暗色遮罩 + 背景虚化，居中干净简历卡（与导出同源） */}
+      {previewOpen && previewSeg && (
+        <div
+          onClick={() => setPreviewOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(15,23,42,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 18, boxShadow: "0 24px 64px rgba(15,23,42,.3)", width: "100%", maxWidth: 560, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 22px", borderBottom: "1px solid #eef2f7" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 600, color: "#64748b" }}>
+                <Eye size={15} color="#6366f1" /> 投出去就是这样 · 本段最终效果
+              </div>
+              <button className="gbtn" onClick={() => setPreviewOpen(false)} style={{ ...ghostBtn, padding: "6px 10px", fontSize: 12.5 }}><X size={14} /> 关闭</button>
+            </div>
+            <div style={{ overflowY: "auto", padding: "26px 30px" }}>
+              <div className="serif" style={{ fontSize: 19, fontWeight: 600, color: "#1e293b" }}>{previewSeg.title}</div>
+              {segmentMetaLine(previewSeg) && (
+                <div style={{ fontSize: 12.5, color: "#64748b", marginTop: 4 }}>{segmentMetaLine(previewSeg)}</div>
+              )}
+              {previewSeg.bullets.length === 0 ? (
+                <div style={{ fontSize: 13.5, color: "#94a3b8", marginTop: 16, lineHeight: 1.6 }}>
+                  本段暂无已采纳的 bullet —— 采纳改写或确认 AI 补充后，这里会显示最终投递内容。
+                </div>
+              ) : (
+                <ul style={{ margin: "16px 0 0", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 9 }}>
+                  {previewSeg.bullets.map((b, i) => (
+                    <li key={i} style={{ fontSize: 14, color: "#334155", lineHeight: 1.7 }}>{b}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
