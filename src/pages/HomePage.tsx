@@ -9,7 +9,7 @@
 import { useMemo, type CSSProperties, type FC } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FileText, Pencil, Sparkles, MoreHorizontal, FileDown, Eye, Clock,
+  FileText, Pencil, Sparkles, MoreHorizontal, FileDown, Clock,
   CheckCircle2, FileEdit, Layers, Database, ArrowRight, RefreshCw, Plus,
 } from "lucide-react";
 import { loadStorage } from "../lib/storage";
@@ -273,11 +273,13 @@ const VersionCard: FC<{ v: CompiledVersion; isLatest: boolean }> = ({ v, isLates
           </span>
         </div>
       </div>
+      {/* 整卡点击进工作台是唯一入口；这里只保留语义不同的次要动作（导出/更多）。
+          查看/微调 已由整卡点击 + 右侧箭头暗示承担，去掉重复的眼睛按钮。 */}
       <div className="acts" style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-        <button className="ibtn" style={iconBtn} title="查看 / 微调" aria-label="查看 / 微调" onClick={() => navigate(`/workbench/${v.id}`)}><Eye size={16} color="#64748b" /></button>
         <button className="ibtn" style={iconBtn} title="导出 / 完成页" aria-label="导出 / 完成页" onClick={() => navigate(`/complete/${v.id}`)}><FileDown size={16} color="#64748b" /></button>
         <button className="ibtn" style={iconBtn} title="更多（即将支持）" aria-label="更多"><MoreHorizontal size={16} color="#64748b" /></button>
       </div>
+      {/* 进工作台的视觉暗示（非独立按钮，hover 时整卡上浮 + 边色变化呼应） */}
       <ArrowRight size={16} color="#cbd5e1" style={{ flexShrink: 0 }} />
     </div>
   );
