@@ -303,9 +303,10 @@ export default function GuidancePage() {
       <style>{`
         .serif { font-family: 'Fraunces', Georgia, serif; }
         .card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow: 0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06); }
-        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
-        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
-        .ex:hover { border-color:#c7d2fe; background:#f5f3ff; color:#4338ca; }
+        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s, transform .1s; } .gbtn:hover:not(:disabled) { background:#f8fafc !important; border-color:#cbd5e1 !important; } .gbtn:active:not(:disabled) { background:#f1f5f9 !important; transform: translateY(1px); }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35) !important; transform: translateY(-1px); } .pbtn:active:not(:disabled) { transform: translateY(0); }
+        .ex:hover { border-color:#c7d2fe !important; background:#f5f3ff !important; color:#4338ca !important; } .ex:active { background:#eef2ff !important; transform: translateY(1px); }
+        .bullrow { transition: box-shadow .15s, border-color .15s; cursor:pointer; } .bullrow:hover { box-shadow: 0 2px 10px rgba(15,23,42,.07); }
         .iconbtn { color:#94a3b8; border-radius:8px; transition: background-color .15s, color .15s, transform .1s; } .iconbtn:hover { background:#f1f5f9; color:#475569; } .iconbtn:active { background:#e2e8f0; transform: translateY(1px); }
         textarea:focus, input:focus, select:focus { border-color:#a5b4fc; outline:none; }
         @keyframes fadeUp { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
@@ -525,7 +526,7 @@ export default function GuidancePage() {
                     {bullets.map((b) => {
                       const checked = d.bulletIds.includes(b.id);
                       return (
-                        <label key={b.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, color: "#334155", cursor: "pointer", padding: "8px 10px", borderRadius: 9, border: `1px solid ${checked ? "#c7d2fe" : "#eef2f7"}`, background: checked ? "#f5f3ff" : "#fcfcfd" }}>
+                        <label key={b.id} className="bullrow" style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, color: "#334155", cursor: "pointer", padding: "8px 10px", borderRadius: 9, border: `1px solid ${checked ? "#c7d2fe" : "#eef2f7"}`, background: checked ? "#f5f3ff" : "#fcfcfd" }}>
                           <span style={{ marginTop: 2 }}><CheckBox checked={checked} onChange={() => toggleBulletIn(d.id, b.id)} /></span>
                           <span style={{ flex: 1, lineHeight: 1.5 }}>
                             <span style={{ fontSize: 11, color: "#6366f1", marginRight: 6 }}>[{b.topic}]</span>{b.text}

@@ -73,8 +73,8 @@ export default function NewVersionPage() {
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 24px 60px" }}>
       <style>{`
         .card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow: 0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06); }
-        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
-        .lnk { transition: color .15s; } .lnk:hover { color:#4f46e5; }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35) !important; transform: translateY(-1px); } .pbtn:active:not(:disabled) { transform: translateY(0); }
+        .lnk { transition: color .15s; } .lnk:hover { color:#4f46e5 !important; }
         .infield:focus-within { border-color:#a5b4fc; }
         textarea:focus { border-color:#a5b4fc; }
       `}</style>

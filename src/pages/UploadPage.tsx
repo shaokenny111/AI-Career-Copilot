@@ -271,8 +271,9 @@ export default function UploadPage() {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px 60px" }}>
       <style>{`
         .card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow: 0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06); }
-        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
-        .drop { transition: border-color .2s, background-color .2s; } .drop:hover { border-color:#a5b4fc; background:#f5f3ff; }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35) !important; transform: translateY(-1px); } .pbtn:active:not(:disabled) { transform: translateY(0); }
+        .drop { transition: border-color .2s, background-color .2s, box-shadow .2s; } .drop:hover { box-shadow: 0 4px 16px rgba(99,102,241,.1); }
+        .revhead { transition: background-color .15s; } .revhead:hover { background:#f8fafc !important; }
         textarea:focus, .infield:focus-within { border-color:#a5b4fc; }
         .iconbtn { color:#94a3b8; border-radius:8px; transition: background-color .15s, color .15s, transform .1s; } .iconbtn:hover { background:#f1f5f9; color:#475569; } .iconbtn:active { background:#e2e8f0; transform: translateY(1px); }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -401,6 +402,7 @@ export default function UploadPage() {
       {uploaded && master && (
         <div className="card" style={{ padding: 0, marginBottom: 24, overflow: "hidden" }}>
           <button
+            className="revhead"
             onClick={() => setReviewOpen((o) => !o)}
             style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "16px 22px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
           >

@@ -162,7 +162,7 @@ export default function CompletePage() {
       <div className="mx-auto max-w-xl py-24 text-center">
         <h1 className="mb-2 text-xl font-bold text-slate-900">没找到这个子版</h1>
         <p className="mb-6 text-sm font-medium text-slate-400">可能尚未编译，或链接已失效。</p>
-        <button onClick={() => navigate("/")} className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white">
+        <button onClick={() => navigate("/")} className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800">
           返回首页
         </button>
       </div>
@@ -178,7 +178,8 @@ export default function CompletePage() {
   return (
     <div style={{ position: "relative" }}>
       <style>{`
-        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
+        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s, transform .1s; } .gbtn:hover:not(:disabled) { background:#f8fafc !important; border-color:#cbd5e1 !important; } .gbtn:active:not(:disabled) { background:#f1f5f9 !important; transform: translateY(1px); }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow:0 6px 18px rgba(79,70,229,.35) !important; transform: translateY(-1px); } .pbtn:active:not(:disabled) { transform: translateY(0); box-shadow:0 2px 8px rgba(79,70,229,.3) !important; }
         .cmpcol { overflow-y:auto; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }

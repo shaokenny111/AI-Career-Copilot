@@ -112,9 +112,9 @@ export default function MasterPage() {
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 24px 80px" }}>
       <style>{`
         .card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow: 0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06); }
-        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
-        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
-        .lnk { transition: color .15s; } .lnk:hover { color:#4f46e5; }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover { box-shadow: 0 6px 18px rgba(79,70,229,.35) !important; transform: translateY(-1px); } .pbtn:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(79,70,229,.3) !important; }
+        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s, transform .1s; } .gbtn:hover { background:#f8fafc !important; border-color:#cbd5e1 !important; } .gbtn:active { background:#f1f5f9 !important; transform: translateY(1px); }
+        .lnk { transition: color .15s; } .lnk:hover { color:#4f46e5 !important; }
         .seg-del { opacity:0; transition: opacity .15s; }
         .segcard:hover .seg-del { opacity:1; }
         .mi:focus, .mi:focus-within { border-color:#a5b4fc; }
