@@ -244,8 +244,8 @@ export default function WorkbenchPage() {
     <div style={{ position: "relative" }}>
       <style>{`
         .seg:hover { background:#f1f5f9; }
-        .gbtn { transition: all .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
-        .pbtn { transition: all .15s; } .pbtn:hover:not(:disabled) { box-shadow:0 6px 18px rgba(79,70,229,.35); transform:translateY(-1px); }
+        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow:0 6px 18px rgba(79,70,229,.35); transform:translateY(-1px); }
         .bcard { transition: box-shadow .2s, border-color .2s; }
         .bcard:hover { box-shadow:0 3px 12px rgba(15,23,42,.07); }
         .bcard .edit-btn { opacity:0; transition: opacity .15s; }
@@ -462,9 +462,9 @@ export default function WorkbenchPage() {
           <section style={{ paddingTop: 22, borderTop: "1px solid #f1f5f9" }}>
             <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}><Target size={13} /> 本段 JD 要求命中</div>
             {!activeDec?.finalIncluded ? (
-              <div style={{ fontSize: 12.5, color: "#cbd5e1" }}>本段本次投递隐藏，不参与匹配</div>
+              <div style={{ fontSize: 12.5, color: "#94a3b8" }}>本段本次投递隐藏，不参与匹配</div>
             ) : segReqs.length === 0 ? (
-              <div style={{ fontSize: 12.5, color: "#cbd5e1" }}>本段无对应的 JD 要求</div>
+              <div style={{ fontSize: 12.5, color: "#94a3b8" }}>本段无对应的 JD 要求</div>
             ) : (
               segReqs.map((r) => (
                 <div key={r.phrase} className="jdrow" style={{ padding: 10, borderRadius: 8, marginBottom: 2 }}>
@@ -476,7 +476,7 @@ export default function WorkbenchPage() {
                     )}
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: r.hit ? "#1e293b" : "#94a3b8", fontWeight: 500, lineHeight: 1.4 }}>{r.phrase}</div>
-                      <div style={{ fontSize: 11.5, color: r.hit ? "#059669" : r.pending ? "#d97706" : "#cbd5e1", marginTop: 3 }}>
+                      <div style={{ fontSize: 11.5, color: r.hit ? "#059669" : r.pending ? "#d97706" : "#94a3b8", marginTop: 3 }}>
                         {r.hit
                           ? `✅ 由 bullet ${r.byBulletIndex} 命中`
                           : r.pending

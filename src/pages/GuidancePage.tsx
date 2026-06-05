@@ -302,8 +302,8 @@ export default function GuidancePage() {
       <style>{`
         .serif { font-family: 'Fraunces', Georgia, serif; }
         .card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow: 0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06); }
-        .gbtn { transition: all .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
-        .pbtn { transition: all .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
+        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
         .ex:hover { border-color:#c7d2fe; background:#f5f3ff; color:#4338ca; }
         textarea:focus, input:focus, select:focus { border-color:#a5b4fc; outline:none; }
         @keyframes fadeUp { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
@@ -585,7 +585,7 @@ export default function GuidancePage() {
 
 const wrap: CSSProperties = { maxWidth: 660, margin: "0 auto", padding: "32px 24px 80px" };
 const chip: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 600, color: "#4f46e5", background: "#eef2ff", border: "1px solid #e0e7ff", padding: "4px 11px", borderRadius: 99, marginBottom: 16 };
-const exChip: CSSProperties = { fontSize: 12.5, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 99, padding: "7px 13px", color: "#64748b", cursor: "pointer", transition: "all .15s" };
+const exChip: CSSProperties = { fontSize: 12.5, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 99, padding: "7px 13px", color: "#64748b", cursor: "pointer", transition: "border-color .15s, background-color .15s, color .15s" };
 const textareaStyle: CSSProperties = { width: "100%", minHeight: 116, border: "1px solid #e2e8f0", borderRadius: 12, padding: 14, fontSize: 14, lineHeight: 1.6, color: "#1e293b", resize: "vertical" };
 const rowBetween: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18 };
 const fieldLabel: CSSProperties = { display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "#64748b", fontWeight: 500 };

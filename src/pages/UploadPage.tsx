@@ -270,8 +270,8 @@ export default function UploadPage() {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px 60px" }}>
       <style>{`
         .card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow: 0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06); }
-        .pbtn { transition: all .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
-        .drop { transition: all .2s; } .drop:hover { border-color:#a5b4fc; background:#f5f3ff; }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
+        .drop { transition: border-color .2s, background-color .2s; } .drop:hover { border-color:#a5b4fc; background:#f5f3ff; }
         textarea:focus, .infield:focus-within { border-color:#a5b4fc; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
@@ -318,7 +318,7 @@ export default function UploadPage() {
                   flex: 1, border: `2px dashed ${dragOver ? "#6366f1" : "#cbd5e1"}`, borderRadius: 14,
                   padding: 16, textAlign: "center", cursor: parsing ? "default" : "pointer",
                   background: dragOver ? "#eef2ff" : "#fafbfc", display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center", minHeight: 180, outline: "none",
+                  alignItems: "center", justifyContent: "center", minHeight: 180,
                 }}
               >
                 {parsing ? (

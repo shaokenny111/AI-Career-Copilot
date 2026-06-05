@@ -42,8 +42,8 @@ export default function HomePage() {
     <div style={{ maxWidth: 880, margin: "0 auto", padding: "40px 24px 80px" }}>
       <style>{`
         .card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; box-shadow: 0 1px 2px -1px rgb(15 23 42/.08), 0 4px 12px -2px rgb(15 23 42/.06); }
-        .gbtn { transition: all .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
-        .pbtn { transition: all .15s; } .pbtn:hover { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
+        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
+        .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
         .vcard { transition: transform .2s, box-shadow .2s, border-color .2s; cursor:pointer; }
         .vcard:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(15,23,42,.1) !important; border-color:#c7d2fe !important; }
         .vcard .acts { opacity:.55; transition: opacity .15s; }
@@ -51,7 +51,7 @@ export default function HomePage() {
         .ibtn { transition: background .15s, border-color .15s; }
         .ibtn:hover { background:#eef2ff; border-color:#c7d2fe; }
         .ibtn:active { background:#e0e7ff; }
-        .mtag { transition: all .15s; }
+        .mtag { transition: background-color .15s, border-color .15s, color .15s; }
       `}</style>
 
       {master ? (
@@ -165,7 +165,7 @@ function VersionsLibrary({ versions }: { versions: CompiledVersion[] }) {
       <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
         <Layers size={14} /> 子版库 · 已编译 {versions.length} 个岗位
       </div>
-      <div style={{ fontSize: 12.5, color: "#cbd5e1", marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, color: "#64748b", marginBottom: 14 }}>
         每个投递过的岗位都在这，点击可回看、微调或重新导出
       </div>
 

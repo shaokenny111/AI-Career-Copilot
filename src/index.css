@@ -16,3 +16,24 @@ body {
 .serif {
   font-family: var(--font-serif);
 }
+
+/* ============================================================================
+   C2 · 全局键盘焦点系统
+   - 按钮 / 链接 / 可点元素：键盘聚焦时描边（:focus-visible 只对键盘生效，
+     鼠标点击不会出现外框）
+   - 文本输入：聚焦给柔光环（鼠标/键盘都给），不套在 checkbox/radio 上
+   纯样式，不改任何交互逻辑。
+   ============================================================================ */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 2px;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus,
+select:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}

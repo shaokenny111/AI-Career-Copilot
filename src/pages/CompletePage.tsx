@@ -178,7 +178,7 @@ export default function CompletePage() {
   return (
     <div style={{ position: "relative" }}>
       <style>{`
-        .gbtn { transition: all .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
+        .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
         .cmpcol { overflow-y:auto; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -317,7 +317,7 @@ export default function CompletePage() {
                       </button>
                     </div>
                     {seg.bullets.length === 0 ? (
-                      <div style={{ fontSize: 13, color: "#cbd5e1", paddingLeft: 14 }}>（本段暂无已采纳的 bullet）</div>
+                      <div style={{ fontSize: 13, color: "#94a3b8", paddingLeft: 14 }}>（本段暂无已采纳的 bullet）</div>
                     ) : (
                       <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 7 }}>
                         {seg.bullets.map((t, bi) => (
