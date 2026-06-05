@@ -57,8 +57,9 @@ function genId(prefix: string): string {
 }
 
 /** 事实清单类段落：教育/技能/证书。这类是"课程/证书/语言成绩/分数"的事实清单，
- *  绝不该走 #1 那套"为 JD 改写成能力句"的逻辑 —— 改走零 AI 确定性直通。 */
-const FACT_LIST_TYPES: ReadonlySet<Segment["type"]> = new Set([
+ *  绝不该走 #1 那套"为 JD 改写成能力句"的逻辑 —— 改走零 AI 确定性直通。
+ *  导出：工作台据此判 bullet 的"改动状态"标识（事实清单段 = 原样展示，非改写）。 */
+export const FACT_LIST_TYPES: ReadonlySet<Segment["type"]> = new Set([
   "education",
   "skill",
   "certificate",

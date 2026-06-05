@@ -27,10 +27,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, CircleHelp, CircleAlert, AlertCircle, Pencil, ChevronDown,
   Info, Check, X, ArrowLeft, ArrowRight, Sparkles, Database, Target, Lock,
+  ListChecks, ThumbsUp,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage, updateCompiledVersion } from "../lib/storage";
 import { matchTier, MATCH_SCORE_NOTE } from "../lib/matchTier";
 import { computeMatchScore, computeSegmentRequirements } from "../lib/scoring";
+import { FACT_LIST_TYPES } from "../lib/compile";
 import type {
   CompiledVersion, Master, RewrittenBullet, Segment, SegmentDecision, SourceLevel,
 } from "../types";
@@ -381,6 +383,7 @@ export default function WorkbenchPage() {
                           key={bulletKey(activeSeg.id, i)}
                           b={b}
                           index={i}
+                          isFactList={FACT_LIST_TYPES.has(activeSeg.type)}
                           expanded={!!expanded[bulletKey(activeSeg.id, i)]}
                           editing={editingKey === bulletKey(activeSeg.id, i)}
                           onToggleExpand={() => setExpanded((p) => ({ ...p, [bulletKey(activeSeg.id, i)]: !p[bulletKey(activeSeg.id, i)] }))}
@@ -516,6 +519,8 @@ export default function WorkbenchPage() {
 interface BulletCardProps {
   b: RewrittenBullet;
   index: number;
+  /** 所在段是否为事实清单段（教育/技能/证书）——决定"改动状态"标识语义 */
+  isFactList: boolean;
   expanded: boolean;
   editing: boolean;
   onToggleExpand: () => void;
@@ -527,7 +532,7 @@ interface BulletCardProps {
 }
 
 const BulletCard: FC<BulletCardProps> = ({
-  b, index, expanded, editing, onToggleExpand, onEdit, onSaveEdit, onConfirmRed, onDecideGy, highlight,
+  b, index, isFactList, expanded, editing, onToggleExpand, onEdit, onSaveEdit, onConfirmRed, onDecideGy, highlight,
 }) => {
   const m = SOURCE[b.sourceLevel];
   const Icon = m.icon;
@@ -536,6 +541,21 @@ const BulletCard: FC<BulletCardProps> = ({
   const conf = b.redConfirmation;
   const gy = b.gyDecision; // 绿/黄逐条取舍状态
   const gyRejected = !isRed && gy === "reject";
+
+  // ── 改动状态（与🟢🟡🔴来源可信度【正交】：颜色管"信不信"，这里管"动没动"）──
+  // 解决绿色被误读：原样保留 ≠ 被改写。判据全用现有数据，不新增字段：
+  //   · 事实清单段（教育/技能/证书）→ 产品故意不改写、防注水，明示"原样展示"
+  //   · 工作/项目段 AI 判定无需改（rewrittenText==originalText）→ 正反馈"已是最优"
+  //   · 工作/项目段确有改写 → "已优化"
+  // 红色是"AI 补充"的新内容，由其自带确认流表达，不挂改动状态标识。
+  const changeTag = isRed
+    ? null
+    : isFactList
+      ? { icon: ListChecks, label: "事实清单 · 原样展示", color: "#94a3b8" }
+      : b.rewrittenText === b.originalText
+        ? { icon: ThumbsUp, label: "已是最优 · 原文保留", color: "#64748b" }
+        : { icon: Sparkles, label: "已优化", color: "#6366f1" };
+  const ChangeIcon = changeTag?.icon;
 
   return (
     <div className="bcard" style={{ border: `1px solid ${isRed ? m.border : "#e2e8f0"}`, borderLeft: `3px solid ${m.bar}`, borderRadius: 14, background: isRed ? m.soft : "#fff", overflow: "hidden", boxShadow: isRed ? "0 2px 8px rgba(225,29,72,.06)" : "0 1px 3px rgba(15,23,42,.05)" }}>
@@ -546,6 +566,12 @@ const BulletCard: FC<BulletCardProps> = ({
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: m.soft, border: `1px solid ${m.border}`, padding: "3px 9px", borderRadius: 99 }}>
               <Icon size={13} color={m.dot} /><span style={{ fontSize: 11.5, fontWeight: 600, color: m.text }}>{m.label}</span>
             </span>
+            {/* 改动状态：轻量小字（无底色/边框），不与三色 chip 抢视觉 */}
+            {changeTag && ChangeIcon && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3.5, fontSize: 11, fontWeight: 500, color: changeTag.color }} title="信息来源（颜色）之外，单独标注 AI 改没改动这条">
+                <ChangeIcon size={12} /> {changeTag.label}
+              </span>
+            )}
             {!isRed && gy === "accept" && (
               <span style={{ fontSize: 11, color: "#059669", display: "inline-flex", alignItems: "center", gap: 3 }}><Check size={12} /> 已采纳</span>
             )}
