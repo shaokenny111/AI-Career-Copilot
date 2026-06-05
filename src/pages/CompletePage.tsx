@@ -367,7 +367,7 @@ export default function CompletePage() {
           </div>
 
           {/* 模块4：投递标记（7D，记录日期；可取消；实时同步到首页子版库） */}
-          <div style={{ marginTop: 24, borderRadius: 16, border: "1px solid #e0e7ff", background: "linear-gradient(135deg,#f5f3ff,#eef2ff)", padding: 22, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ marginTop: 24, borderRadius: 16, border: "1px solid #e2e8f0", background: "#fafbfc", padding: 22, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
             <div>
               <div style={{ fontSize: 14.5, fontWeight: 600 }}>投出去了吗？标记一下</div>
               <div style={{ fontSize: 12.5, color: "#6366f1", marginTop: 3 }}>

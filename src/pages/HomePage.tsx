@@ -97,9 +97,9 @@ function MasterCard({
       </div>
       <div
         style={{
-          borderRadius: 18, border: "1.5px solid #c7d2fe",
-          background: "linear-gradient(135deg,#ffffff,#f5f3ff)",
-          boxShadow: "0 4px 20px rgba(79,70,229,.1)", padding: 28, marginBottom: 44,
+          borderRadius: 18, border: "1.5px solid #e2e8f0",
+          background: "#fcfcfd",
+          boxShadow: "0 4px 16px rgba(15,23,42,.06)", padding: 28, marginBottom: 44,
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: 22 }}>
@@ -147,7 +147,7 @@ function MasterCard({
         <div
           style={{
             fontSize: 12.5, color: "#94a3b8", marginTop: 18, paddingTop: 16,
-            borderTop: "1px solid #e9ecfb", lineHeight: 1.5,
+            borderTop: "1px solid #eef2f7", lineHeight: 1.5,
           }}
         >
           母版是你所有经历的完整集合，每次编译都从这里取材，始终完整保留 —— 子版的取舍不会动它分毫

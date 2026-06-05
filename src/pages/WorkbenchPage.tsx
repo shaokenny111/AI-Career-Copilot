@@ -423,7 +423,7 @@ export default function WorkbenchPage() {
           <section>
             <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}><Target size={13} /> 整份简历匹配度</div>
             {score.totalWeight > 0 ? (
-              <div style={{ background: "linear-gradient(135deg,#fafbff,#f5f3ff)", border: "1px solid #e9ecfb", borderRadius: 16, padding: "20px 16px" }}>
+              <div style={{ background: "#fafbfc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "20px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
                   <Ring value={score.scoreBefore} label="改写前" dim size={72} stroke={7} />
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -452,7 +452,7 @@ export default function WorkbenchPage() {
                 </div>
               </div>
             ) : (
-              <div style={{ background: "linear-gradient(135deg,#fafbff,#f5f3ff)", border: "1px solid #e9ecfb", borderRadius: 16, padding: "26px 16px", textAlign: "center", fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
+              <div style={{ background: "#fafbfc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "26px 16px", textAlign: "center", fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
                 暂无可量化的 JD 要求 —— 编译未从 JD 提取到要求，无法计算确定性匹配度。
               </div>
             )}
@@ -733,8 +733,8 @@ function StepBar({ current }: { current: number }) {
 
 const primaryBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", border: "none", borderRadius: 9, padding: "9px 17px", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(79,70,229,.25)" };
 const ghostBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 9, padding: "8px 13px", fontSize: 13, color: "#475569", cursor: "pointer" };
-const redBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#f43f5e,#e11d48)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(225,29,72,.25)" };
-const acceptBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(5,150,105,.25)" };
+const redBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 3px rgba(225,29,72,.2)" };
+const acceptBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "#059669", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 3px rgba(5,150,105,.2)" };
 const rejectBtn: CSSProperties = { display: "flex", alignItems: "center", gap: 5, background: "#fff", color: "#64748b", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 500, cursor: "pointer" };
 const navTitle: CSSProperties = { fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em", padding: "0 12px 14px" };
 const sideTitle: CSSProperties = { fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: ".06em" };
