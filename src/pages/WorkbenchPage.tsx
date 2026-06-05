@@ -406,9 +406,24 @@ export default function WorkbenchPage() {
                 )}
 
                 {/* 段落导航 */}
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 28, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
                   <button className="gbtn" onClick={() => go(-1)} disabled={idx === 0} style={{ ...ghostBtn, opacity: idx === 0 ? 0.4 : 1 }}><ArrowLeft size={15} /> 上一段</button>
-                  <button className="pbtn" onClick={() => go(1)} disabled={idx === segments.length - 1} style={{ ...primaryBtn, opacity: idx === segments.length - 1 ? 0.4 : 1 }}>下一段 <ArrowRight size={15} /></button>
+                  {idx === segments.length - 1 ? (
+                    // 最后一段：顺序走完的自然出口，与顶部完成按钮共用 allDone 门控
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {!allDone && <span style={{ fontSize: 12, color: "#94a3b8" }}>还有 {total - doneCount} 段待处理</span>}
+                      <button
+                        className="pbtn"
+                        onClick={() => allDone && navigate(`/complete/${version.id}`)}
+                        disabled={!allDone}
+                        style={{ ...primaryBtn, opacity: allDone ? 1 : 0.45, cursor: allDone ? "pointer" : "not-allowed", background: allDone ? primaryBtn.background : "#94a3b8" }}
+                      >
+                        完成编辑，查看投递版本 <ArrowRight size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="pbtn" onClick={() => go(1)} style={primaryBtn}>下一段 <ArrowRight size={15} /></button>
+                  )}
                 </div>
               </>
             ) : (
