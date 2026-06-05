@@ -172,9 +172,22 @@ function VersionsLibrary({ versions }: { versions: CompiledVersion[] }) {
       {versions.length === 0 ? (
         <div
           className="card"
-          style={{ padding: 28, textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}
+          style={{ padding: "44px 28px", textAlign: "center" }}
         >
-          还没有子版。点击母版区的「针对新岗位编译」，编译你的第一个投递版本。
+          <div
+            style={{
+              width: 56, height: 56, margin: "0 auto 16px", borderRadius: 16,
+              background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Layers size={26} color="#94a3b8" />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#475569", marginBottom: 7 }}>
+            还没有子版
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6, maxWidth: 360, margin: "0 auto" }}>
+            点上方母版区的「针对新岗位编译」，编译你的第一个投递版本。
+          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
