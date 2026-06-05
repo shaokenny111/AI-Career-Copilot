@@ -8,3 +8,12 @@ coverage/
 !.env.example
 .dev.vars
 .wrangler/
+
+# 运行态数据快照（浏览器随时可重新导出，无保留价值，不入库）
+/storage.json
+# 验收脚本临时产物 / 日志（可重跑生成，不入库）
+scripts/batch10-storage.json
+scripts/verify-batch9-out.txt
+
+# 本地个人设置（.local 约定为个人覆盖，不共享）
+.claude/settings.local.json
