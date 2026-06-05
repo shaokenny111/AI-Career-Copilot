@@ -5,8 +5,11 @@
 // 逐步填充真实内容（母版管理、JD 编译、工作台、子版库等）。
 // ============================================================================
 
+import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
+import MobileGate from "./components/MobileGate";
+import { useIsMobile } from "./lib/useIsMobile";
 import HomePage from "./pages/HomePage";
 import MasterPage from "./pages/MasterPage";
 import VersionsPage from "./pages/VersionsPage";
@@ -18,6 +21,15 @@ import WorkbenchPage from "./pages/WorkbenchPage";
 import CompletePage from "./pages/CompletePage";
 
 export default function App() {
+  const isMobile = useIsMobile();
+  const [continueOnMobile, setContinueOnMobile] = useState(false);
+
+  // 窄屏兜底：拦在路由之前，绝不让会崩的桌面三栏布局在小屏挂载。
+  // 不锁死——用户坚持可放行；放宽到桌面尺寸时自动恢复正常渲染。
+  if (isMobile && !continueOnMobile) {
+    return <MobileGate onContinue={() => setContinueOnMobile(true)} />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
