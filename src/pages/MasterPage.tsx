@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { loadStorage, saveStorage } from "../lib/storage";
 import { useAppStorage } from "../lib/useAppStorage";
+import { CheckBox, Select } from "../components/controls";
 import type { BasicInfo, Master, Segment, SegmentType } from "../types";
 
 const SEG_TYPES: Array<{ value: SegmentType; label: string }> = [
@@ -186,15 +187,15 @@ export default function MasterPage() {
             <div key={s.id} className="card segcard" style={{ padding: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: "#cbd5e1" }}>{String(i + 1).padStart(2, "0")}</span>
-                <select
+                <Select
                   value={s.type}
                   onChange={(e) => editSegment(s.id, { type: e.target.value as SegmentType })}
-                  style={{ fontSize: 12, fontWeight: 600, color: "#4338ca", background: "#eef2ff", border: "1px solid #e0e7ff", borderRadius: 99, padding: "4px 10px", cursor: "pointer", outline: "none" }}
+                  style={{ fontSize: 12, fontWeight: 600, color: "#4338ca", background: "#eef2ff", border: "1px solid #e0e7ff", borderRadius: 99, padding: "4px 10px" }}
                 >
                   {SEG_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
-                </select>
+                </Select>
                 <div style={{ flex: 1 }} />
                 <button className="seg-del gbtn" onClick={() => removeSegment(s.id)} title="删除这段经历" style={{ ...ghostBtn, padding: "6px 10px", color: "#e11d48" }}>
                   <Trash2 size={13} /> 删除
@@ -224,8 +225,7 @@ export default function MasterPage() {
                   style={{ ...inStyle, width: 100, opacity: s.isCurrent ? 0.5 : 1 }}
                 />
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#475569", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
+                  <CheckBox
                     checked={s.isCurrent}
                     onChange={(e) => {
                       const isCurrent = e.target.checked;

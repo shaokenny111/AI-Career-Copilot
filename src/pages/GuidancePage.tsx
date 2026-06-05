@@ -29,6 +29,7 @@ import {
   type GuidanceBullet, type SegmentDraft,
 } from "../lib/guidanceIntake";
 import { loadStorage, saveStorage } from "../lib/storage";
+import { CheckBox, Select } from "../components/controls";
 
 // ---------------------------------------------------------------------------
 // 引导问题（#5 输出投影到本页只用的字段）
@@ -492,9 +493,9 @@ export default function GuidancePage() {
                 <div key={d.id} className="card" style={{ padding: 18 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: "#4338ca", background: "#eef2ff", border: "1px solid #e0e7ff", padding: "3px 10px", borderRadius: 99 }}>第 {i + 1} 段</span>
-                    <select value={d.type} onChange={(e) => patchDraft(d.id, { type: e.target.value as SegmentType })} style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}>
+                    <Select value={d.type} onChange={(e) => patchDraft(d.id, { type: e.target.value as SegmentType })} style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}>
                       {SEG_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    </Select>
                     <button onClick={() => removeDraft(d.id)} className="iconbtn" style={{ marginLeft: "auto", border: "none", cursor: "pointer", padding: 5 }} title="删除这段">
                       <Trash2 size={15} color="currentColor" />
                     </button>
@@ -512,7 +513,7 @@ export default function GuidancePage() {
                       onChange={(e) => patchDraft(d.id, { timeRange: { ...d.timeRange, end: e.target.value } })}
                       placeholder="YYYY-MM" style={{ ...inputStyle, width: 100, opacity: d.isCurrent ? 0.5 : 1 }} />
                     <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#475569", cursor: "pointer" }}>
-                      <input type="checkbox" checked={d.isCurrent}
+                      <CheckBox checked={d.isCurrent}
                         onChange={(e) => patchDraft(d.id, { isCurrent: e.target.checked, timeRange: { ...d.timeRange, end: e.target.checked ? "present" : (d.timeRange.end === "present" ? "" : d.timeRange.end) } })} />
                       在职 / 进行中
                     </label>
@@ -525,7 +526,7 @@ export default function GuidancePage() {
                       const checked = d.bulletIds.includes(b.id);
                       return (
                         <label key={b.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, color: "#334155", cursor: "pointer", padding: "8px 10px", borderRadius: 9, border: `1px solid ${checked ? "#c7d2fe" : "#eef2f7"}`, background: checked ? "#f5f3ff" : "#fcfcfd" }}>
-                          <input type="checkbox" checked={checked} onChange={() => toggleBulletIn(d.id, b.id)} style={{ marginTop: 3 }} />
+                          <span style={{ marginTop: 2 }}><CheckBox checked={checked} onChange={() => toggleBulletIn(d.id, b.id)} /></span>
                           <span style={{ flex: 1, lineHeight: 1.5 }}>
                             <span style={{ fontSize: 11, color: "#6366f1", marginRight: 6 }}>[{b.topic}]</span>{b.text}
                           </span>

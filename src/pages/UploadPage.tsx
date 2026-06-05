@@ -31,6 +31,7 @@ import { parseFile, parseImageBlob, getPastedImage } from "../lib/fileParser";
 import { parseResumeText, classifyResumeType } from "../lib/gemini";
 import { buildClassifyInput, buildMaster } from "../lib/resumeIntake";
 import { loadStorage, saveStorage } from "../lib/storage";
+import { CheckBox } from "../components/controls";
 import type {
   Master,
   Segment,
@@ -457,8 +458,7 @@ export default function UploadPage() {
                         style={{ ...reviewInput, width: 92, opacity: s.isCurrent ? 0.5 : 1 }}
                       />
                       <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#475569", cursor: "pointer", marginLeft: 4 }}>
-                        <input
-                          type="checkbox"
+                        <CheckBox
                           checked={s.isCurrent}
                           onChange={(e) => {
                             const isCurrent = e.target.checked;
