@@ -305,6 +305,7 @@ export default function GuidancePage() {
         .gbtn { transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s; } .gbtn:hover { background:#f8fafc; border-color:#cbd5e1; }
         .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
         .ex:hover { border-color:#c7d2fe; background:#f5f3ff; color:#4338ca; }
+        .iconbtn { color:#94a3b8; border-radius:8px; transition: background-color .15s, color .15s, transform .1s; } .iconbtn:hover { background:#f1f5f9; color:#475569; } .iconbtn:active { background:#e2e8f0; transform: translateY(1px); }
         textarea:focus, input:focus, select:focus { border-color:#a5b4fc; outline:none; }
         @keyframes fadeUp { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -494,8 +495,8 @@ export default function GuidancePage() {
                     <select value={d.type} onChange={(e) => patchDraft(d.id, { type: e.target.value as SegmentType })} style={{ ...inputStyle, width: "auto", padding: "7px 10px" }}>
                       {SEG_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
-                    <button onClick={() => removeDraft(d.id)} style={{ marginLeft: "auto", border: "none", background: "transparent", cursor: "pointer", padding: 4 }} title="删除这段">
-                      <Trash2 size={15} color="#94a3b8" />
+                    <button onClick={() => removeDraft(d.id)} className="iconbtn" style={{ marginLeft: "auto", border: "none", cursor: "pointer", padding: 5 }} title="删除这段">
+                      <Trash2 size={15} color="currentColor" />
                     </button>
                   </div>
 

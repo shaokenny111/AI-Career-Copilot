@@ -273,6 +273,7 @@ export default function UploadPage() {
         .pbtn { transition: box-shadow .15s, transform .15s; } .pbtn:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79,70,229,.35); transform: translateY(-1px); }
         .drop { transition: border-color .2s, background-color .2s; } .drop:hover { border-color:#a5b4fc; background:#f5f3ff; }
         textarea:focus, .infield:focus-within { border-color:#a5b4fc; }
+        .iconbtn { color:#94a3b8; border-radius:8px; transition: background-color .15s, color .15s, transform .1s; } .iconbtn:hover { background:#f1f5f9; color:#475569; } .iconbtn:active { background:#e2e8f0; transform: translateY(1px); }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
       `}</style>
@@ -351,7 +352,7 @@ export default function UploadPage() {
                   <div style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fileName || "已上传简历"}</div>
                   <div style={{ fontSize: 11.5, color: "#94a3b8" }}>已解析 · {wordCount} 字 · {segCount} 段经历</div>
                 </div>
-                <button onClick={reset} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4 }} title="移除并重新上传"><X size={16} color="#94a3b8" /></button>
+                <button onClick={reset} className="iconbtn" style={{ border: "none", cursor: "pointer", padding: 5 }} title="移除并重新上传"><X size={16} color="currentColor" /></button>
               </div>
 
               {t && (

@@ -6,23 +6,8 @@
 // 导航项，而是首页（hub）内的分区，故 Header 不放主导航。
 // ============================================================================
 
-import type { CSSProperties } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import { FileText, Globe } from "lucide-react";
-
-const ghostBtn: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  background: "#fff",
-  border: "1px solid #e2e8f0",
-  borderRadius: 10,
-  padding: "9px 14px",
-  fontSize: 13,
-  color: "#475569",
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
+import { FileText } from "lucide-react";
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -80,11 +65,6 @@ export default function Layout() {
             AI Resume Compiler
           </span>
         </div>
-
-        {/* 中/EN 全局切换（i18n 后续 Phase 接入，目前为视觉占位） */}
-        <button className="gbtn" style={ghostBtn} title="切换语言（待接入）">
-          <Globe size={15} /> 中 / EN
-        </button>
       </header>
 
       <main style={{ position: "relative", zIndex: 1 }}>
