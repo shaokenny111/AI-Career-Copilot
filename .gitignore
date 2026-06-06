@@ -18,3 +18,8 @@ scripts/verify-out.txt
 
 # 本地个人设置（.local 约定为个人覆盖，不共享）
 .claude/settings.local.json
+
+# 真实简历 / 个人隐私文件——绝不入库（仓库 public）。本地保留作模板对齐基准，但不跟踪。
+reference/*.docx
+reference/*.pdf
+reference/*.png
