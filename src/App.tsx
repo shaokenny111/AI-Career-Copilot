@@ -12,7 +12,6 @@ import MobileGate from "./components/MobileGate";
 import { useIsMobile } from "./lib/useIsMobile";
 import HomePage from "./pages/HomePage";
 import MasterPage from "./pages/MasterPage";
-import VersionsPage from "./pages/VersionsPage";
 import UploadPage from "./pages/UploadPage";
 import NewVersionPage from "./pages/NewVersionPage";
 import CompilePage from "./pages/CompilePage";
@@ -43,7 +42,6 @@ export default function App() {
           <Route path="complete/:versionId" element={<CompletePage />} />
           <Route path="guidance" element={<GuidancePage />} />
           <Route path="master" element={<MasterPage />} />
-          <Route path="versions" element={<VersionsPage />} />
           {/* 未知路径回首页 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
