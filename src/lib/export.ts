@@ -151,7 +151,7 @@ export function contactParts(basics: ExportBasics): string[] {
  *    · 中文 9pt + 边距 10mm/13.5mm → 每行约 56 字、每页约 60 行；
  *    · 英文 11pt + 边距 5mm/12.7mm → 每行约 95 字符、每页约 56 行。
  *  （旧参数按宽松模板估，每行仅 36 字、每页 46 行，会把半页内容虚估成 2 页。） */
-export function estimatePageCount(model: ExportModel): number {
+function estimateLines(model: ExportModel): { lines: number; perPage: number } {
   const en = model.lang === "en";
   const perLine = en ? 95 : 56; // 每行约容纳字符数
   const perPage = en ? 56 : 60; // 每页约容纳行数
@@ -164,7 +164,19 @@ export function estimatePageCount(model: ExportModel): number {
       for (const b of seg.bullets) lines += bulletLines(b);
     }
   }
+  return { lines, perPage };
+}
+
+export function estimatePageCount(model: ExportModel): number {
+  const { lines, perPage } = estimateLines(model);
   return Math.max(1, Math.ceil(lines / perPage));
+}
+
+/** 估算首页填充比例（内容行数 ÷ 单页行数；>1 表示超过一页）。
+ *  供完成页判定"导出偏空"——填得太少给温和提示，绝不据此自动加内容。 */
+export function estimatePageFill(model: ExportModel): number {
+  const { lines, perPage } = estimateLines(model);
+  return lines / perPage;
 }
 
 /** 单段 → 纯文本（标题 + 副标题/地点·时间线 + 每条 bullet 一行，无标注符号） */

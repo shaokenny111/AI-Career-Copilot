@@ -17,6 +17,7 @@ import {
   buildPrintHtml,
   detectContentLang,
   estimatePageCount,
+  estimatePageFill,
   formatSegTime,
   modelToPlainText,
   segmentToPlainText,
@@ -266,6 +267,9 @@ const longModel: ExportModel = {
   })),
 };
 ok(estimatePageCount(longModel) > 1, "长简历估为多页（>1，触发温和提示）");
+// 偏空提示：短英文（1 段 1 bullet）填充比例应明显 < 80%；长简历应 ≥ 1（填满一页+）
+ok(estimatePageFill(enModel) < 0.8, "短简历填充比例 < 80%（触发'偏空'温和提示）");
+ok(estimatePageFill(longModel) >= 1, "长简历填充比例 ≥ 1（不会误报偏空）");
 
 console.log(`\n${pass ? "✅ 7B/7C 验收通过" : "❌ 验收失败"}`);
 process.exit(pass ? 0 : 1);

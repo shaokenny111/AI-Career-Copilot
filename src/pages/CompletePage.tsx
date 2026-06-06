@@ -26,7 +26,7 @@ import { useAppStorage } from "../lib/useAppStorage";
 import { computeMatchScore, isBulletAdopted, IMPORTANCE_TO_SEVERITY } from "../lib/scoring";
 import { matchTier, MATCH_SCORE_NOTE } from "../lib/matchTier";
 import { formatRelativeDate } from "../lib/datetime";
-import { copyText, detectContentLang, downloadDocx, estimatePageCount, formatSegTime, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
+import { copyText, detectContentLang, downloadDocx, estimatePageCount, estimatePageFill, formatSegTime, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, GapSeverity, Master, Segment } from "../types";
 
 // 实质差距严重度 → 标签 / 配色（hard_filter / important / minor）
@@ -149,6 +149,22 @@ export default function CompletePage() {
 
   // 粗估导出页数（仅用于温和提示；绝不据此自动删/缩内容）
   const pageEstimate = useMemo(() => estimatePageCount(exportModel), [exportModel]);
+
+  // 偏空判定（两路信号，仅温和提示、绝不自动加内容）：
+  //   ① 相对一页：填充比例 < 80%；② 相对母版：保留内容字数 < 母版的 80%。
+  const sparse = useMemo(() => {
+    if (exportModel.segments.length === 0 || pageEstimate > 1) return null;
+    const pageFill = estimatePageFill(exportModel);
+    const masterChars = (master?.segments ?? []).reduce((n, s) => n + (s.content?.trim().length ?? 0), 0);
+    const exportedChars = exportModel.segments.reduce(
+      (n, s) => n + s.title.length + s.bullets.reduce((m, b) => m + b.length, 0),
+      0,
+    );
+    const retained = masterChars > 0 ? exportedChars / masterChars : 1;
+    const byPage = pageFill < 0.8;
+    const byMaster = retained < 0.8;
+    return byPage || byMaster ? { pageFill, retained, byPage, byMaster } : null;
+  }, [exportModel, master, pageEstimate]);
 
   // 复制反馈（key: "all" 或 "seg_<i>"），短暂高亮后复位
   const [copied, setCopied] = useState<string | null>(null);
@@ -360,6 +376,16 @@ export default function CompletePage() {
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start", margin: "0 0 16px", padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: 12.5, color: "#92400e", lineHeight: 1.55 }}>
                 <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
                 <span>当前内容约 <b>{pageEstimate}</b> 页。简历通常建议控制在一页，若想更精炼，可<b>返回工作台</b>少采纳几条改写——这里不会自动删改你的内容。</span>
+              </div>
+            )}
+            {sparse && (
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", margin: "0 0 16px", padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: 12.5, color: "#92400e", lineHeight: 1.55 }}>
+                <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>
+                  当前内容约占一页的 <b>{Math.round(sparse.pageFill * 100)}%</b>
+                  {sparse.byMaster && <>（相比母版保留约 <b>{Math.round(sparse.retained * 100)}%</b>）</>}
+                  ，简历偏空可能显得单薄。可<b>返回工作台</b>采纳更多改写（尤其待确认的红色补充），或回<b>母版</b>补充经历——这里不会自动添加内容。
+                </span>
               </div>
             )}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
