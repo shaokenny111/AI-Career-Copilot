@@ -248,17 +248,21 @@ ok(!zhHtml.includes("教育背景 (Education)"), "无教育段时不空渲染教
 console.log("\n⑥ 一页估算（温和提示用，不裁内容）");
 ok(estimatePageCount(model) >= 1, "页数估算 ≥ 1");
 ok(estimatePageCount(enModel) === 1, "短英文简历估为 1 页");
-// 长简历（多段多 bullet）应估为多页，触发完成页温和提示
+// 长简历（多段多 bullet）应估为多页，触发完成页温和提示（按新校准约需 >60 行）
 const longModel: ExportModel = {
   lang: "zh",
   jdLabel: "x",
   basics: { name: "邵子康" },
-  segments: Array.from({ length: 9 }, (_, i) => ({
+  segments: Array.from({ length: 12 }, (_, i) => ({
     title: `经历 ${i + 1}`,
-    type: (i < 2 ? "education" : i < 5 ? "work" : "project") as Segment["type"],
+    type: (i < 2 ? "education" : i < 6 ? "work" : "project") as Segment["type"],
     typeLabel: "x",
     timeRange: "2023-01 ~ 2024-01",
-    bullets: ["小标题：" + "覆盖职责成果数字工具的较长描述文本".repeat(2)],
+    bullets: [
+      "小标题一：" + "覆盖职责成果数字与所用工具的较长描述文本".repeat(2),
+      "小标题二：" + "覆盖职责成果数字与所用工具的较长描述文本".repeat(2),
+      "小标题三：" + "覆盖职责成果数字与所用工具的较长描述文本".repeat(2),
+    ],
   })),
 };
 ok(estimatePageCount(longModel) > 1, "长简历估为多页（>1，触发温和提示）");

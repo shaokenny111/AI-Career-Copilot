@@ -147,18 +147,20 @@ export function contactParts(basics: ExportBasics): string[] {
 }
 
 /** 粗略估算导出 PDF 页数——只为完成页的"温和提示"服务，绝不据此自动删/缩内容。
- *  按内容行数 ÷ 每页行数估，宁可保守（与真实 print-to-pdf 在常见简历上吻合，
- *  当前 9 段/22 bullet 的真实母版估得 2 页、实测也 2 页）。 */
+ *  按内容行数 ÷ 每页行数估。参数已校准到当前高保真模板：
+ *    · 中文 9pt + 边距 10mm/13.5mm → 每行约 56 字、每页约 60 行；
+ *    · 英文 11pt + 边距 5mm/12.7mm → 每行约 95 字符、每页约 56 行。
+ *  （旧参数按宽松模板估，每行仅 36 字、每页 46 行，会把半页内容虚估成 2 页。） */
 export function estimatePageCount(model: ExportModel): number {
   const en = model.lang === "en";
-  const perLine = en ? 95 : 36; // 每行约容纳字符数（A4 14mm 边距 + 当前字号）
-  const perPage = 46; // 每页约容纳行数
-  const bulletLines = (t: string) => Math.max(1, Math.ceil(t.length / perLine)) + 0.3;
-  let lines = model.basics ? 4 : 1; // 抬头区
+  const perLine = en ? 95 : 56; // 每行约容纳字符数
+  const perPage = en ? 56 : 60; // 每页约容纳行数
+  const bulletLines = (t: string) => Math.max(1, Math.ceil(t.length / perLine)) + 0.2;
+  let lines = model.basics ? 3 : 1; // 抬头区（居中：姓名/简介/联系方式）
   for (const sec of groupSegments(model)) {
-    lines += 2.2; // 区标题 + 间距
+    lines += 1.8; // 区标题 + 间距
     for (const seg of sec.segments) {
-      if (!sec.fact) lines += 1.7; // 机构标题行
+      if (!sec.fact) lines += 1.4; // 机构标题行
       for (const b of seg.bullets) lines += bulletLines(b);
     }
   }
