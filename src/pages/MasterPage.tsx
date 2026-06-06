@@ -12,10 +12,10 @@
 // 无母版（直接刷到本页）→ 引导回上传页建母版。
 // ============================================================================
 
-import { type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Plus, Trash2, Database, FileText, User, Sparkles, Info,
+  ArrowLeft, Plus, Trash2, Database, FileText, User, Sparkles, Info, Camera, X,
 } from "lucide-react";
 import { loadStorage, saveStorage } from "../lib/storage";
 import { useAppStorage } from "../lib/useAppStorage";
@@ -37,6 +37,34 @@ const SEG_TYPES: Array<{ value: SegmentType; label: string }> = [
 /** 稳定随机 id（与 resumeIntake / compile 同风格，无第三方依赖） */
 function genId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** 选图 → 等比缩放成 base64（证件照足够清晰，又不至大图撑爆 localStorage）。
+ *  只做"读进来 + 等比缩放存下来"，不裁剪、不美化。 */
+function readImageAsDataUrl(file: File, maxDim = 512): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读图失败"));
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const img = new Image();
+      img.onerror = () => reject(new Error("图片解码失败"));
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(dataUrl); // 兜底：拿不到 2d 上下文就存原图
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function MasterPage() {
@@ -145,8 +173,9 @@ export default function MasterPage() {
       <div style={{ ...sideTitle, display: "flex", alignItems: "center", gap: 7, margin: "30px 0 12px" }}>
         <User size={14} /> 基本信息
       </div>
-      <div className="card" style={{ padding: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div className="card" style={{ padding: 20, display: "flex", gap: 20, alignItems: "flex-start" }}>
+        <AvatarUpload value={master.basicInfo.avatar} onChange={(avatar) => editBasic({ avatar })} />
+        <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <Field label="姓名">
             <input className="mi" value={master.basicInfo.name} onChange={(e) => editBasic({ name: e.target.value })} placeholder="姓名" style={inStyle} />
           </Field>
@@ -281,6 +310,86 @@ export default function MasterPage() {
 }
 
 // ============================ 小组件 ============================
+
+/** 证件照上传：选图→等比缩放成 base64 存进 basicInfo.avatar。
+ *  只「选图、存下来、显示」，不裁剪/美化。证件照仅用于中文导出模板右上角；
+ *  英文模板不放照片。3:4 竖版预览框（贴合证件照比例）。 */
+function AvatarUpload({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (v: string | undefined) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+
+  async function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 允许重复选同一文件
+    if (!file) return;
+    setErr(false);
+    setBusy(true);
+    try {
+      onChange(await readImageAsDataUrl(file));
+    } catch {
+      setErr(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      <input ref={inputRef} type="file" accept="image/*" onChange={onFile} style={{ display: "none" }} />
+      <button
+        type="button"
+        className="gbtn"
+        onClick={() => inputRef.current?.click()}
+        title={value ? "更换照片" : "上传证件照"}
+        style={{
+          width: 96,
+          height: 128,
+          padding: 0,
+          borderRadius: 10,
+          border: value ? "1px solid #e2e8f0" : "1.5px dashed #cbd5e1",
+          background: value ? `center/cover no-repeat url(${value})` : "#f8fafc",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          color: "#94a3b8",
+          cursor: "pointer",
+          overflow: "hidden",
+        }}
+      >
+        {!value && (
+          <>
+            <Camera size={20} />
+            <span style={{ fontSize: 11.5, fontWeight: 500 }}>{busy ? "处理中…" : "上传照片"}</span>
+          </>
+        )}
+      </button>
+      {value ? (
+        <button
+          type="button"
+          className="lnk"
+          onClick={() => onChange(undefined)}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "#94a3b8" }}
+        >
+          <X size={12} /> 移除照片
+        </button>
+      ) : (
+        <span style={{ fontSize: 11, color: "#cbd5e1", textAlign: "center", lineHeight: 1.4, maxWidth: 96 }}>
+          仅用于中文模板
+        </span>
+      )}
+      {err && <span style={{ fontSize: 11, color: "#e11d48" }}>读图失败，换一张</span>}
+    </div>
+  );
+}
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
