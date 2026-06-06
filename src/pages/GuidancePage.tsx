@@ -10,8 +10,8 @@
 //   grouping  → 【归集层】把 bullet 归到若干"经历段"，每段由用户填 title/时间/在职态
 //   done      → 组装成合法 Master 落盘，引导回首页或直接编译
 //
-// ⚠️ 第一步只验结构：#5/#6 用本地桩函数（loadQuestionsStub / convertToStarStub）占位，
-//    不烧配额。接线缝已标 TODO(Phase4-step2)，第二步替换为真 AI 调用即可。
+// ⚠️ 已接真 AI（Phase 4-B）：startQuestions→generateGuidanceQuestions(#5)、
+//    toStar→convertToStar(#6)，均走 /api/gemini 真链路【会烧配额】，含加载态+失败重试。
 // 铁律：每段 timeRange + isCurrent 由【用户填】保证非空，绝不让 AI 脑补年限。
 // ============================================================================
 
