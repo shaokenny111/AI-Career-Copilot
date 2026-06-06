@@ -12,7 +12,7 @@
 // 7B-2：追加 .docx 下载（docx@9.x）。PDF 留 7B-3。
 // ============================================================================
 
-import { BorderStyle, Document, HeadingLevel, Packer, Paragraph, TabStopType, TextRun } from "docx";
+import { AlignmentType, BorderStyle, Document, Packer, Paragraph, TabStopType, TextRun } from "docx";
 import type { Segment, SegmentType } from "../types";
 import { detectContentLang } from "./lang";
 
@@ -87,19 +87,22 @@ export interface ExportModel {
 interface SectionDef {
   types: SegmentType[];
   zh: string;
+  /** 英文模板标题（全大写，对齐英文原件 EDUCATION / PROFESSIONAL EXPERIENCE）。 */
   en: string;
+  /** 中文模板括注（首字母大写，对齐中文原件「教育背景 (Education)」）。 */
+  enZh: string;
   /** 事实清单区（技能/证书）：走紧凑「列表式」排版，不为每段单独起标题行。 */
   fact?: boolean;
 }
 
 /** 分区顺序与命名（教育 → 工作/实习 → 项目 → 技能/证书 → 其他）。
- *  中文模板用「中文 (English)」双语标题；英文模板用大写英文。 */
+ *  中文模板用「中文 (English)」双语标题（括注首字母大写）；英文模板用大写英文。 */
 const SECTION_DEFS: SectionDef[] = [
-  { types: ["education"], zh: "教育背景", en: "EDUCATION" },
-  { types: ["work", "internship"], zh: "工作经验", en: "PROFESSIONAL EXPERIENCE" },
-  { types: ["project"], zh: "项目经验", en: "PROJECT EXPERIENCE" },
-  { types: ["skill", "certificate"], zh: "技能与证书", en: "SKILLS & CERTIFICATIONS", fact: true },
-  { types: ["award", "activity", "other"], zh: "其他", en: "ADDITIONAL" },
+  { types: ["education"], zh: "教育背景", en: "EDUCATION", enZh: "Education" },
+  { types: ["work", "internship"], zh: "工作经验", en: "PROFESSIONAL EXPERIENCE", enZh: "Work Experience" },
+  { types: ["project"], zh: "项目经验", en: "PROJECT EXPERIENCE", enZh: "Project Experience" },
+  { types: ["skill", "certificate"], zh: "技能与证书", en: "SKILLS & CERTIFICATIONS", enZh: "Skills & Certifications", fact: true },
+  { types: ["award", "activity", "other"], zh: "其他", en: "ADDITIONAL", enZh: "Additional" },
 ];
 
 export interface ExportSection {
@@ -118,7 +121,7 @@ export function groupSegments(model: ExportModel): ExportSection[] {
     const segs = model.segments.filter((s) => def.types.includes(s.type));
     if (segs.length === 0) continue;
     segs.forEach((s) => used.add(s));
-    out.push({ title: en ? def.en : `${def.zh} (${def.en})`, fact: !!def.fact, segments: segs });
+    out.push({ title: en ? def.en : `${def.zh} (${def.enZh})`, fact: !!def.fact, segments: segs });
   }
   const rest = model.segments.filter((s) => !used.has(s));
   if (rest.length) out.push({ title: en ? "ADDITIONAL" : "其他 (Additional)", fact: false, segments: rest });
@@ -209,29 +212,42 @@ export async function copyText(text: string): Promise<void> {
 // OOXML 小样验证不乱码。
 
 /** 纯函数：ExportModel → docx Document（Node 可测，浏览器下载共用，单一构建逻辑）。
- *  尽量对齐 PDF 黑白模板：姓名抬头 + 联系方式 + 按 type 分区；机构标题加粗、
- *  城市·时间走右制表位右对齐；bullet「加粗小标题：描述」。证件照不进 Word（PDF 主）。 */
+ *  与 PDF buildPrintHtml 同一套高保真参数（对齐用户原 docx）：
+ *  · 抬头居中（姓名 + 简介 + 联系方式），中英一致、均无照片。
+ *  · 字体/字号：中文 微软雅黑 9pt（姓名 18pt）、英文 Times New Roman 11pt（姓名 14pt）。
+ *  · 页边距：中文 上下10mm/左右13.5mm、英文 上下5mm/左右12.7mm（原件值）。
+ *  · 分区标题加粗带下横线；中文机构行「机构 | 副标题 | 时间」一行加粗、
+ *    英文机构行 标题左 + 地点·时间右制表位右对齐；bullet「加粗小标题：描述」。 */
 export function buildDocxDocument(model: ExportModel): Document {
   const isEn = model.lang === "en";
   const fallbackTitle = isEn ? "Resume" : "投递版本";
-  const RIGHT_TAB = 11186; // A4(11906) − 左右各 720 twips 边距 → 内容右界
+  // 字号（half-point）：中文 9pt=18 / 18pt=36；英文 11pt=22 / 14pt=28 / 12pt=24
+  const bodySize = isEn ? 22 : 18;
+  const nameSize = isEn ? 28 : 36;
+  const headSize = isEn ? 24 : 18; // 分区标题
+  const metaSize = isEn ? 24 : 18; // 联系方式
+  const orgSize = isEn ? 22 : 18; // 机构行
+  const RIGHT_TAB = 10466; // 内容右界（A4 11906 − 左右各 720）— 英文机构行右对齐位
+  const sectionBorder = { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 2 } };
   const children: Paragraph[] = [];
   const b = model.basics;
 
-  // 抬头：姓名 / 简介 / 联系方式（联系方式行下加黑分割线）
+  // 抬头：居中，姓名 / 简介 / 联系方式（无照片，中英一致）
   if (b?.name) {
     children.push(
       new Paragraph({
-        spacing: { after: 40 },
-        children: [new TextRun({ text: b.name, bold: true, size: isEn ? 36 : 32 })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 20 },
+        children: [new TextRun({ text: b.name, bold: true, size: nameSize })],
       }),
     );
   }
   if (b?.headline) {
     children.push(
       new Paragraph({
-        spacing: { after: 40 },
-        children: [new TextRun({ text: b.headline, size: 20, color: "333333" })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 20 },
+        children: [new TextRun({ text: b.headline, size: metaSize })],
       }),
     );
   }
@@ -239,9 +255,9 @@ export function buildDocxDocument(model: ExportModel): Document {
   if (contact.length) {
     children.push(
       new Paragraph({
-        spacing: { after: 160 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: "000000", space: 6 } },
-        children: [new TextRun({ text: contact.join("   ·   "), size: 18, color: "222222" })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+        children: [new TextRun({ text: contact.join(isEn ? "   |   " : "   ·   "), size: metaSize })],
       }),
     );
   }
@@ -250,27 +266,37 @@ export function buildDocxDocument(model: ExportModel): Document {
   for (const sec of groupSegments(model)) {
     children.push(
       new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 200, after: 60 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 2 } },
-        children: [new TextRun({ text: sec.title, bold: true })],
+        spacing: { before: 140, after: 40 },
+        border: sectionBorder,
+        children: [new TextRun({ text: sec.title, bold: true, size: headSize })],
       }),
     );
     for (const seg of sec.segments) {
       if (!sec.fact) {
-        const meta = segmentMetaLine(seg);
-        children.push(
-          new Paragraph({
-            spacing: { before: 80, after: 20 },
-            ...(meta ? { tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }] } : {}),
-            children: meta
-              ? [
-                  new TextRun({ text: seg.title, bold: true }),
-                  new TextRun({ text: `\t${meta}`, color: "333333", size: 18 }),
-                ]
-              : [new TextRun({ text: seg.title, bold: true })],
-          }),
-        );
+        if (isEn) {
+          const meta = segmentMetaLine(seg);
+          children.push(
+            new Paragraph({
+              spacing: { before: 40, after: 10 },
+              ...(meta ? { tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }] } : {}),
+              children: meta
+                ? [
+                    new TextRun({ text: seg.title, bold: true, size: orgSize }),
+                    new TextRun({ text: `\t${meta}`, size: orgSize }),
+                  ]
+                : [new TextRun({ text: seg.title, bold: true, size: orgSize })],
+            }),
+          );
+        } else {
+          // 中文：机构 | 副标题 | 时间 一行加粗
+          const head = [seg.title, seg.subtitle, seg.timeRange].filter(Boolean).join("   |   ");
+          children.push(
+            new Paragraph({
+              spacing: { before: 40, after: 10 },
+              children: [new TextRun({ text: head, bold: true, size: orgSize })],
+            }),
+          );
+        }
       }
       for (const bul of seg.bullets) {
         const { label, rest } = splitLeadLabel(bul);
@@ -278,10 +304,13 @@ export function buildDocxDocument(model: ExportModel): Document {
         children.push(
           new Paragraph({
             bullet: { level: 0 },
-            spacing: { after: 20 },
+            spacing: { after: 10 },
             children: label
-              ? [new TextRun({ text: label + sep, bold: true }), new TextRun({ text: rest })]
-              : [new TextRun({ text: bul })],
+              ? [
+                  new TextRun({ text: label + sep, bold: true, size: bodySize }),
+                  new TextRun({ text: rest, size: bodySize }),
+                ]
+              : [new TextRun({ text: bul, size: bodySize })],
           }),
         );
       }
@@ -289,16 +318,30 @@ export function buildDocxDocument(model: ExportModel): Document {
   }
 
   if (children.length === 0) {
-    children.push(new Paragraph({ children: [new TextRun({ text: fallbackTitle })] }));
+    children.push(new Paragraph({ children: [new TextRun({ text: fallbackTitle, size: bodySize })] }));
   }
 
   return new Document({
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: isEn
+              ? { ascii: "Times New Roman", hAnsi: "Times New Roman", cs: "Times New Roman" }
+              : { ascii: "微软雅黑", eastAsia: "微软雅黑", hAnsi: "微软雅黑" },
+            size: bodySize,
+          },
+        },
+      },
+    },
     sections: [
       {
         properties: {
           page: {
             size: { width: 11906, height: 16838 },
-            margin: { top: 720, right: 720, bottom: 720, left: 720 },
+            margin: isEn
+              ? { top: 284, right: 720, bottom: 284, left: 720 }
+              : { top: 567, right: 765, bottom: 567, left: 765 },
           },
         },
         children,
@@ -332,16 +375,12 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-/** 属性值转义（证件照 data URL 进 src；base64 本身安全，仍防引号/尖括号越界）。 */
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-}
-
 /** 纯函数：ExportModel → 自包含打印 HTML（黑白简历模板，系统字体；PDF 主路径）。
- *  · 全黑白——唯一彩色是用户证件照（仅中文模板右上角；英文模板不放照片）。
- *  · 顶部个人信息抬头（姓名 / 简介 / 联系方式）+ 按 type 分区（不写死模块名）。
- *  · 机构标题左对齐、城市·时间右对齐；bullet「加粗小标题：描述」领起。
- *  · 中文模板区标题用「中文 (English)」双语；英文模板用大写英文。
+ *  · 全黑白；中英均无照片（抬头居中，对齐用户原 docx）。
+ *  · 顶部个人信息抬头（姓名 / 简介 / 联系方式，居中）+ 按 type 分区（不写死模块名）。
+ *  · 中文机构行「机构 | 副标题 | 时间」一行加粗；英文机构标题左、地点·时间右对齐；
+ *    bullet「加粗小标题：描述」领起。
+ *  · 字体/字号：中文 微软雅黑 9pt、英文 Times New Roman 11pt（对齐用户原 docx）。
  *  · 分页：每段（标题+其 bullet）整体不跨页，区标题不在页底孤儿。 */
 export function buildPrintHtml(model: ExportModel, title?: string): string {
   const isEn = model.lang === "en";
@@ -349,22 +388,19 @@ export function buildPrintHtml(model: ExportModel, title?: string): string {
   const b = model.basics;
   const docTitle = escapeHtml(title || b?.name || model.jdLabel || fallbackTitle);
 
-  // 个人信息抬头区
-  const photo =
-    !isEn && b?.avatar ? `<img class="photo" src="${escapeAttr(b.avatar)}" alt="" />` : "";
+  // 个人信息抬头区（中英一致：整体居中、无照片，贴合英文原件）
   const nameHtml = b?.name ? `<div class="name">${escapeHtml(b.name)}</div>` : "";
   const headlineHtml = b?.headline ? `<div class="headline">${escapeHtml(b.headline)}</div>` : "";
+  const contactSep = isEn ? '<span class="dot">|</span>' : '<span class="dot">·</span>';
   const contactHtml = b
     ? (() => {
         const parts = contactParts(b).map(escapeHtml);
-        return parts.length
-          ? `<div class="contact">${parts.join('<span class="dot">·</span>')}</div>`
-          : "";
+        return parts.length ? `<div class="contact">${parts.join(contactSep)}</div>` : "";
       })()
     : "";
   const header =
-    nameHtml || contactHtml || photo
-      ? `<header class="hdr"><div class="who">${nameHtml}${headlineHtml}${contactHtml}</div>${photo}</header>`
+    nameHtml || contactHtml
+      ? `<header class="hdr">${nameHtml}${headlineHtml}${contactHtml}</header>`
       : "";
 
   // 分区渲染：区内每段保留自己的 title；技能/证书区走列表式
@@ -384,46 +420,72 @@ export function buildPrintHtml(model: ExportModel, title?: string): string {
           if (sec.fact) {
             return `<div class="entry fact">${lis ? `<ul>${lis}</ul>` : ""}</div>`;
           }
-          const meta = escapeHtml(segmentMetaLine(seg));
-          return `<div class="entry"><div class="ehead"><span class="etitle">${escapeHtml(seg.title)}</span>${
-            meta ? `<span class="emeta">${meta}</span>` : ""
-          }</div>${lis ? `<ul>${lis}</ul>` : ""}</div>`;
+          if (isEn) {
+            // 英文：机构标题左、地点·时间右对齐（贴合原件机构行右对齐惯例）
+            const meta = escapeHtml(segmentMetaLine(seg));
+            return `<div class="entry"><div class="ehead"><span class="etitle">${escapeHtml(seg.title)}</span>${
+              meta ? `<span class="emeta">${meta}</span>` : ""
+            }</div>${lis ? `<ul>${lis}</ul>` : ""}</div>`;
+          }
+          // 中文：机构 | 副标题 | 时间 一行加粗（贴合原件"学校 | 学位 | 时间"）
+          const head = [seg.title, seg.subtitle, seg.timeRange]
+            .filter(Boolean)
+            .map((x) => escapeHtml(x as string))
+            .join("&nbsp;&nbsp;|&nbsp;&nbsp;");
+          return `<div class="entry"><div class="ehead">${head}</div>${lis ? `<ul>${lis}</ul>` : ""}</div>`;
         })
         .join("");
       return `<section><h2>${escapeHtml(sec.title)}</h2>${entries}</section>`;
     })
     .join("");
 
-  const cjk = `"Microsoft YaHei", "微软雅黑", "PingFang SC", "Noto Sans CJK SC", "Heiti SC", "WenQuanYi Micro Hei"`;
-  const latin = `Calibri, Carlito, "Segoe UI", Arial, Helvetica`;
-  const fontFamily = isEn ? `${latin}, ${cjk}, sans-serif` : `${cjk}, ${latin}, sans-serif`;
+  // 字体：中文母版用微软雅黑（姓名原为华文细黑=Mac 字体，Win 缺失退化微软雅黑）；
+  //       英文用 Times New Roman——均为原件实际用字。
+  const cjk = `"Microsoft YaHei", "微软雅黑", "PingFang SC", "Noto Sans CJK SC", sans-serif`;
+  const latin = `"Times New Roman", Times, "PingFang SC", serif`;
+
+  // 中文模板：边距 10mm/13.5mm、正文 9pt、姓名 18pt、抬头居中（同英文，无照片）、
+  //           分区标题 9pt 加粗带横线（对齐原件参数）
+  const cssZh = `
+  @page { margin: 10mm 13.5mm; }
+  * { box-sizing: border-box; }
+  body { margin:0; color:#000; font-family:${cjk}; font-size:9pt; line-height:1.4; }
+  .hdr { text-align:center; margin-bottom:4pt; break-after:avoid; }
+  .name { font-size:18pt; font-weight:700; line-height:1.1; }
+  .headline { font-size:9pt; margin-top:2pt; }
+  .contact { font-size:9pt; margin-top:3pt; word-break:break-word; }
+  .contact .dot { margin:0 5pt; }
+  h2 { font-size:9pt; font-weight:700; margin:9pt 0 3pt; padding-bottom:2pt;
+    border-bottom:1pt solid #000; break-after:avoid; }
+  .entry { break-inside:avoid; page-break-inside:avoid; margin-bottom:3pt; }
+  .ehead { font-weight:700; font-size:9pt; margin-top:4pt; }
+  ul { margin:2pt 0 0; padding-left:15pt; }
+  li { margin:0 0 1.5pt; }
+  .entry.fact ul { margin:0; }`;
+
+  // 英文模板：边距 5mm/12.7mm、正文 11pt、姓名 14pt 居中、分区标题 12pt 加粗带横线
+  const cssEn = `
+  @page { margin: 5mm 12.7mm; }
+  * { box-sizing: border-box; }
+  body { margin:0; color:#000; font-family:${latin}; font-size:11pt; line-height:1.3; }
+  .hdr { text-align:center; margin-bottom:3pt; break-after:avoid; }
+  .name { font-size:14pt; font-weight:700; }
+  .headline { font-size:12pt; margin-top:1pt; }
+  .contact { font-size:12pt; margin-top:1pt; word-break:break-word; }
+  .contact .dot { margin:0 4pt; }
+  h2 { font-size:12pt; font-weight:700; margin:7pt 0 2pt; padding-bottom:1pt;
+    border-bottom:1pt solid #000; break-after:avoid; }
+  .entry { break-inside:avoid; page-break-inside:avoid; margin-bottom:3pt; }
+  .ehead { display:flex; justify-content:space-between; align-items:baseline; gap:12pt; }
+  .etitle { font-weight:700; font-size:11pt; }
+  .emeta { font-size:11pt; white-space:nowrap; flex-shrink:0; }
+  ul { margin:1pt 0 0; padding-left:16pt; }
+  li { margin:0 0 1.5pt; }
+  .entry.fact ul { margin:0; }`;
 
   return `<!DOCTYPE html>
 <html lang="${isEn ? "en" : "zh"}"><head><meta charset="utf-8"><title>${docTitle}</title>
-<style>
-  @page { margin: 14mm; }
-  * { box-sizing: border-box; }
-  body { margin: 0; color: #000; font-family: ${fontFamily};
-    font-size: ${isEn ? "10.5pt" : "10pt"}; line-height: 1.5; }
-  .hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 16pt;
-    padding-bottom: 8pt; margin-bottom: 2pt; border-bottom: 1.5pt solid #000; break-after: avoid; }
-  .who { min-width: 0; }
-  .name { font-size: ${isEn ? "20pt" : "19pt"}; font-weight: 700; letter-spacing: ${isEn ? ".5pt" : "1pt"}; }
-  .headline { font-size: 10.5pt; margin-top: 3pt; }
-  .contact { font-size: 9pt; color: #222; margin-top: 6pt; word-break: break-word; }
-  .contact .dot { margin: 0 6pt; color: #999; }
-  .photo { width: 26mm; height: 34mm; object-fit: cover; border: 0.5pt solid #bbb; flex-shrink: 0; }
-  h2 { font-size: 11.5pt; font-weight: 700; letter-spacing: ${isEn ? ".5pt" : "0"};
-    margin: 13pt 0 5pt; padding-bottom: 2pt; border-bottom: 0.75pt solid #000; break-after: avoid; }
-  .entry { break-inside: avoid; page-break-inside: avoid; margin-bottom: 8pt; }
-  .entry.fact { margin-bottom: 3pt; }
-  .ehead { display: flex; justify-content: space-between; align-items: baseline; gap: 12pt; }
-  .etitle { font-weight: 700; font-size: 10.5pt; }
-  .emeta { font-size: 9pt; color: #333; white-space: nowrap; flex-shrink: 0; }
-  ul { margin: 3pt 0 0; padding-left: 16pt; }
-  li { margin: 0 0 3pt; }
-  .entry.fact ul { margin: 0; }
-</style></head>
+<style>${isEn ? cssEn : cssZh}</style></head>
 <body>
   ${header}
   ${sectionsHtml}

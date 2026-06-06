@@ -679,7 +679,7 @@ const BulletCard: FC<BulletCardProps> = ({
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #f1f5f9", fontSize: 12.5, color: "#64748b", lineHeight: 1.65 }}>
             <div><span style={{ fontWeight: 600, color: "#475569" }}>改动 </span>{b.whatChanged}</div>
             <div><span style={{ fontWeight: 600, color: "#475569" }}>原因 </span>{b.whyChanged}</div>
-            {b.originalText && (
+            {b.originalText && b.originalText !== b.rewrittenText && (
               <div style={{ marginTop: 6, color: "#94a3b8" }}><span style={{ fontWeight: 600, color: "#475569" }}>原文 </span>{b.originalText}</div>
             )}
             {b.matchedJdPhrases.length > 0 && (

@@ -100,7 +100,7 @@ ok(xml.includes("邵子康"), "含个人信息抬头：姓名");
 ok(xml.includes("AI 产品经理，金融科技背景"), "含个人信息抬头：一句话简介");
 ok(xml.includes("shaokenny@example.com") && xml.includes("https://zikang.space"), "含联系方式（邮箱 / 个人主页链接）");
 // 注：docx XML 会把 & 转义为 &amp;，故技能区标题断言避开字面 &
-ok(xml.includes("工作经验 (PROFESSIONAL EXPERIENCE)") && xml.includes("项目经验 (PROJECT EXPERIENCE)") && xml.includes("技能与证书 (SKILLS"), "按 type 分区（双语区标题：工作/项目/技能）");
+ok(xml.includes("工作经验 (Work Experience)") && xml.includes("项目经验 (Project Experience)") && xml.includes("技能与证书 (Skills"), "按 type 分区（双语区标题：工作/项目/技能，括注首字母大写对齐原件）");
 ok(!xml.includes("字节跳动 · AI 产品经理"), "简历正文不出现目标岗位 jdLabel（简历不该自报投哪）");
 ok(xml.includes("海晟佛山金融租赁有限公司 项目经理助理") && xml.includes("AI 简历编译器(AI Resume Compiler)"), "含两段段标题");
 ok(xml.includes("熟练使用 SQL 进行业务数据查询与分析"), "含含英文混排 bullet（SQL）");
@@ -108,6 +108,25 @@ ok(xml.includes("2023-07 ~ 至今") && xml.includes("2025-08 ~ 2026-03"), "docx 
 ok(xml.includes("广东 · 佛山") && xml.includes("独立开发者"), "docx 每段含地点/副标题（subtitle 不丢）");
 ok(xml.includes("<w:numPr>"), "bullet 走列表项（numPr）结构完整");
 ok(!MARKERS.some((m) => xml.includes(m)), "docx 正文不含 🟢🟡🔴 标注符号");
+
+console.log("\n②-b Word 高保真版式（对齐用户原 docx：字体/字号/边距，且任何情况都不嵌照片）");
+// 用户决策（2026-06-06）：中英文均不放证件照；docx 任何情况都不应嵌 word/media。
+const TINY_JPEG =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AfwD/2Q==";
+const withPhoto = (m: ExportModel): ExportModel => ({ ...m, basics: { ...m.basics!, avatar: TINY_JPEG } });
+const listEntries = (buf: Buffer): string => {
+  const p = join(dir, `probe-${Math.random().toString(36).slice(2)}.docx`);
+  writeFileSync(p, buf);
+  return execSync(`unzip -l "${p}"`, { encoding: "utf8" });
+};
+ok(!/word\/media\//.test(listEntries(await Packer.toBuffer(buildDocxDocument(withPhoto(model))))), "中文 docx 不嵌照片（即便 basics 带 avatar）");
+ok(!/word\/media\//.test(listEntries(await Packer.toBuffer(buildDocxDocument(withPhoto({ ...model, lang: "en" }))))), "英文 docx 不嵌照片");
+// 中文母版高保真：微软雅黑（在 styles.xml 默认样式）+ 边距 567/765 + 姓名 18pt(sz36) + 机构行
+const zhStyles = execSync(`unzip -p "${f}" word/styles.xml`, { encoding: "utf8" });
+ok(zhStyles.includes("微软雅黑"), "中文 docx 默认字体=微软雅黑（对齐原件）");
+ok(/<w:pgMar[^>]*w:top="567"/.test(xml) && /<w:pgMar[^>]*w:left="765"/.test(xml), "中文 docx 页边距=上下10mm/左右13.5mm（567/765 twips）");
+ok(xml.includes('w:val="36"'), "中文 docx 姓名 18pt（sz=36）");
+ok(/项目经理助理\s*\|\s*广东 · 佛山/.test(xml.replace(/<[^>]+>/g, "")), "中文 docx 机构行「机构 | 副标题 | 时间」一行");
 
 console.log("\n③ PDF（7B-3，无头浏览器 print-to-pdf + 抽字验中文字形）");
 const BROWSERS = [
@@ -216,12 +235,15 @@ writeFileSync(enDocxPath, enBuf);
 const enDocXml = execSync(`unzip -p "${enDocxPath}" word/document.xml`, { encoding: "utf8" });
 ok(!enDocXml.includes("至今"), "Word（英文）不含'至今'");
 ok(enDocXml.includes("Present"), "Word（英文）在职段显示 Present");
+const enStyles = execSync(`unzip -p "${enDocxPath}" word/styles.xml`, { encoding: "utf8" });
+ok(enStyles.includes("Times New Roman"), "英文 docx 默认字体=Times New Roman（对齐原件）");
+ok(/<w:pgMar[^>]*w:top="284"/.test(enDocXml) && /<w:pgMar[^>]*w:left="720"/.test(enDocXml), "英文 docx 页边距=上下5mm/左右12.7mm（284/720 twips）");
 
 // 回归：中文路径结构正确
 const zhHtml = buildPrintHtml(model);
 ok(zhHtml.includes('lang="zh"'), "中文 PDF 的 <html lang> 仍为 zh");
 ok(zhHtml.includes("<b>需求洞察：</b>"), "中文 bullet 加粗小标题（含全角冒号）");
-ok(!zhHtml.includes("教育背景 (EDUCATION)"), "无教育段时不空渲染教育区（空区丢弃）");
+ok(!zhHtml.includes("教育背景 (Education)"), "无教育段时不空渲染教育区（空区丢弃）");
 
 console.log("\n⑥ 一页估算（温和提示用，不裁内容）");
 ok(estimatePageCount(model) >= 1, "页数估算 ≥ 1");

@@ -118,7 +118,7 @@ export default function CompletePage() {
       .join(" ");
     const lang = detectContentLang(contentBlob);
     // 个人信息抬头：从母版 basicInfo 派生（数据现成）。空串字段一律省略，
-    // 模板按存在与否决定渲染，避免出现孤立的 "·" 或空头像框。
+    // 模板按存在与否决定渲染，避免出现孤立的 "·"。证件照已弃用，不再派生 avatar。
     const bi = master?.basicInfo;
     const basics = bi
       ? {
@@ -128,7 +128,6 @@ export default function CompletePage() {
           ...(bi.location ? { location: bi.location } : {}),
           ...(bi.headline ? { headline: bi.headline } : {}),
           ...(bi.links?.length ? { links: bi.links } : {}),
-          ...(bi.avatar ? { avatar: bi.avatar } : {}),
         }
       : undefined;
     return {
