@@ -19,14 +19,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronDown, ChevronUp, ArrowLeft, TrendingUp,
   Home, RotateCcw, Copy, Check, FileType, Loader2, FileDown,
-  ShieldCheck, Sparkles, Send, X,
+  ShieldCheck, Sparkles, Send, X, Info,
 } from "lucide-react";
 import { getCompiledVersion, loadStorage, setApplicationMark } from "../lib/storage";
 import { useAppStorage } from "../lib/useAppStorage";
 import { computeMatchScore, isBulletAdopted, IMPORTANCE_TO_SEVERITY } from "../lib/scoring";
 import { matchTier, MATCH_SCORE_NOTE } from "../lib/matchTier";
 import { formatRelativeDate } from "../lib/datetime";
-import { copyText, detectContentLang, downloadDocx, formatSegTime, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
+import { copyText, detectContentLang, downloadDocx, estimatePageCount, formatSegTime, modelToPlainText, printPdf, segmentToPlainText, type ExportModel } from "../lib/export";
 import type { CompiledVersion, GapSeverity, Master, Segment } from "../types";
 
 // 实质差距严重度 → 标签 / 配色（hard_filter / important / minor）
@@ -147,6 +147,9 @@ export default function CompletePage() {
       })),
     };
   }, [version, master, includedSegments]);
+
+  // 粗估导出页数（仅用于温和提示；绝不据此自动删/缩内容）
+  const pageEstimate = useMemo(() => estimatePageCount(exportModel), [exportModel]);
 
   // 复制反馈（key: "all" 或 "seg_<i>"），短暂高亮后复位
   const [copied, setCopied] = useState<string | null>(null);
@@ -354,6 +357,12 @@ export default function CompletePage() {
             <div style={{ fontSize: 13, color: "#94a3b8", margin: "8px 0 18px", lineHeight: 1.6 }}>
               导出的是上方"最终投递内容"的干净文本，与屏幕逐字一致。PDF 走系统打印，请在弹出的对话框中选择"另存为 PDF"。
             </div>
+            {exportModel.segments.length > 0 && pageEstimate > 1 && (
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", margin: "0 0 16px", padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: 12.5, color: "#92400e", lineHeight: 1.55 }}>
+                <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>当前内容约 <b>{pageEstimate}</b> 页。简历通常建议控制在一页，若想更精炼，可<b>返回工作台</b>少采纳几条改写——这里不会自动删改你的内容。</span>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <button
                 className="gbtn"
