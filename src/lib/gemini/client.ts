@@ -131,6 +131,59 @@ function isQuotaError(error: unknown): boolean {
   );
 }
 
+// ---- 全局限流 + 429 退避 ----------------------------------------------------
+// 免费层 RPM 极低（gemini flash free tier = 5 次/分钟），而一次编译会瞬间齐发
+// 多个请求（#2 + 每段 #1 + #8…）→ 必撞 429。这里在网络层之上加一个全局choke：
+//   ① 限制同时在飞的请求数；② 撞 429 时按建议延迟（或指数退避）等待后重试。
+// callGeminiProxy 本身不动（已验证稳定），所有调用统一走 callWithLimit。
+const MAX_CONCURRENT = 2; // 同时在飞的请求上限（配合退避，免费层也能逐步放行）
+let active = 0;
+const waiters: Array<() => void> = [];
+async function acquireSlot(): Promise<void> {
+  if (active < MAX_CONCURRENT) {
+    active++;
+    return;
+  }
+  await new Promise<void>((resolve) => waiters.push(resolve));
+  active++;
+}
+function releaseSlot(): void {
+  active--;
+  waiters.shift()?.();
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** 从 429 错误信息抠出建议重试秒数（"Please retry in 2.54s" / retryDelay: 2s）；
+ *  抠不到则指数退避兜底（1.5s→3s→6s…，封顶 30s）。 */
+function retryDelayMs(error: unknown, attempt: number): number {
+  const msg = String((error as any)?.message || "");
+  const m = msg.match(/retry in ([\d.]+)s/i) || msg.match(/retryDelay["\s:]+([\d.]+)s/i);
+  if (m) return Math.ceil(parseFloat(m[1]) * 1000) + 300;
+  return Math.min(30000, 1500 * 2 ** attempt);
+}
+
+/** 限流 + 429 退避包装：让一次编译的并发请求排队、撞配额自动等待重试。
+ *  非配额错误（如 4xx/5xx 故障）不重试，立即抛出交给上层模型降级。 */
+async function callWithLimit(body: GeminiRequestBody, maxRetries = 5): Promise<string> {
+  await acquireSlot();
+  try {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await callGeminiProxy(body);
+      } catch (error) {
+        lastError = error;
+        if (!isQuotaError(error) || attempt === maxRetries) throw error;
+        await sleep(retryDelayMs(error, attempt));
+      }
+    }
+    throw lastError;
+  } finally {
+    releaseSlot();
+  }
+}
+
 /**
  * 核心分析功能（V1.0 既有，供旧 App.tsx 调用，原样保留）。
  */
@@ -173,7 +226,7 @@ export async function analyzeWithGemini(
  */
 export async function extractTextFromFile(fileData: string, mimeType: string) {
   try {
-    return await callGeminiProxy({
+    return await callWithLimit({
       model: "gemini-3.1-flash-lite",
       contents: [
         {
@@ -203,7 +256,7 @@ async function callStructured(
   let lastError: unknown;
   for (const model of modelNames) {
     try {
-      return await callGeminiProxy({
+      return await callWithLimit({
         model,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
