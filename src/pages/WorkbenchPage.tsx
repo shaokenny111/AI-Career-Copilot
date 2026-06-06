@@ -256,6 +256,7 @@ export default function WorkbenchPage() {
           );
           return {
             title: activeSeg.title,
+            type: activeSeg.type,
             typeLabel: SEG_TYPE_LABEL[activeSeg.type],
             ...(activeSeg.subtitle ? { subtitle: activeSeg.subtitle } : {}),
             timeRange: formatSegTime(activeSeg, lang),

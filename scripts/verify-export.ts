@@ -28,6 +28,7 @@ const model: ExportModel = {
   segments: [
     {
       title: "海晟佛山金融租赁有限公司 项目经理助理",
+      type: "work",
       typeLabel: "工作经历",
       subtitle: "广东 · 佛山",
       timeRange: "2023-07 ~ 至今",
@@ -38,6 +39,7 @@ const model: ExportModel = {
     },
     {
       title: "AI 简历编译器(AI Resume Compiler)",
+      type: "project",
       typeLabel: "项目经历",
       subtitle: "独立开发者",
       timeRange: "2025-08 ~ 2026-03",
@@ -154,6 +156,7 @@ const enModel: ExportModel = {
   segments: [
     {
       title: "Acme Corp — Data Analyst",
+      type: "work",
       typeLabel: "Work",
       subtitle: "Shanghai",
       timeRange: formatSegTime(curSeg, "en"),

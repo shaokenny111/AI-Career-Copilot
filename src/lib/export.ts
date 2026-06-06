@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
-import type { Segment } from "../types";
+import type { Segment, SegmentType } from "../types";
 import { detectContentLang } from "./lang";
 
 // detectContentLang 现归零依赖的 ./lang（摄入/编译层也复用，避免耦合 docx）；
@@ -35,6 +35,8 @@ export function formatSegTime(seg: Segment, lang: "zh" | "en"): string {
  *  content 不进（已被采纳后的改写 bullet 取代）；tags/id/时间戳是内部字段，不展示。 */
 export interface ExportSegment {
   title: string;
+  /** 段落原始类型——用于模板按惯例分区（教育/工作/项目/技能…），不写死模块名。 */
+  type: SegmentType;
   typeLabel: string;
   /** 副标题：地点 / 项目角色等（对应 Segment.subtitle）。无则空。 */
   subtitle?: string;
@@ -42,6 +44,20 @@ export interface ExportSegment {
    *  一份没时间线的简历是废的，绝不可丢。 */
   timeRange: string;
   bullets: string[];
+}
+
+/** 导出顶部「个人信息抬头区」数据（CompletePage 从 master.basicInfo 派生）。
+ *  铁律：这些字段母版里现成存着，导出模板顶部据此渲染姓名/联系方式/头像。
+ *  avatar 仅中文模板用（右上角证件照）；英文模板不放照片。 */
+export interface ExportBasics {
+  name: string;
+  phone?: string;
+  email?: string;
+  location?: string;
+  headline?: string;
+  links?: Array<{ label: string; url: string }>;
+  /** 头像 base64 / URL，可选；仅中文模板渲染。 */
+  avatar?: string;
 }
 
 /** 段落元信息行：副标题/地点 · 时间线（各自存在才拼，避免出现孤立的 "·"）。
@@ -54,6 +70,8 @@ export function segmentMetaLine(seg: ExportSegment): string {
 export interface ExportModel {
   /** 顶部上下文标签（公司 · 职位），与完成页屏幕一致 */
   jdLabel: string;
+  /** 个人信息抬头（姓名/电话/邮箱/链接/简介/头像）。省略则模板不渲染抬头区。 */
+  basics?: ExportBasics;
   segments: ExportSegment[];
   /** 投递内容语言（由 CompletePage 按真实内容检测得出）。省略按 "zh" 处理。
    *  用途：PDF 的 <html lang>、固定文案（副标题/兜底标题）跟随语言，
