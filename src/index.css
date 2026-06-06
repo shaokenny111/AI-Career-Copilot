@@ -12,7 +12,7 @@ body {
   background: #f8fafc;
 }
 
-/* 衬线体（母版标题、分数数字等），对齐 _refs 设计 */
+/* 衬线体（母版标题、分数数字等），对齐既有设计 */
 .serif {
   font-family: var(--font-serif);
 }

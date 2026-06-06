@@ -14,6 +14,7 @@ coverage/
 # 验收脚本临时产物 / 日志（可重跑生成，不入库）
 scripts/batch10-storage.json
 scripts/verify-batch9-out.txt
+scripts/verify-out.txt
 
 # 本地个人设置（.local 约定为个人覆盖，不共享）
 .claude/settings.local.json
